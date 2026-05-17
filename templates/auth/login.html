@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Anmelden{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h2>Willkommen zurück</h2>
+    <p class="muted">Melde dich an, um deine Tipps abzugeben.</p>
+
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+      <label>{{ form.email.label }}
+        {{ form.email(class_='input', placeholder='du@email.de') }}
+        {% for e in form.email.errors %}<span class="err">{{ e }}</span>{% endfor %}
+      </label>
+      <label>{{ form.password.label }}
+        {{ form.password(class_='input', placeholder='••••••••') }}
+        {% for e in form.password.errors %}<span class="err">{{ e }}</span>{% endfor %}
+      </label>
+      <label class="check">{{ form.remember() }} {{ form.remember.label.text }}</label>
+      {{ form.submit(class_='btn-primary btn-block') }}
+    </form>
+
+    <div class="auth-meta">
+      <a href="{{ url_for('auth.password_reset_request') }}">Passwort vergessen?</a>
+      <span>·</span>
+      <a href="{{ url_for('auth.register') }}">Konto erstellen</a>
+    </div>
+
+    <div class="demo-hint">
+      <strong>Standard-Admin:</strong><br>
+      <code>admin@tippspiel.de</code> / <code>admin123</code><br>
+      <small>(beim ersten Login bitte sofort ändern!)</small>
+    </div>
+  </div>
+</div>
+{% endblock %}

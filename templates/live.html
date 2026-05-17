@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+{% block title %}Live-Center{% endblock %}
+{% block content %}
+
+<div class="page-header live-header">
+  <div>
+    <h1>
+      <span class="live-dot"></span>
+      Live-Center
+    </h1>
+    <p class="muted small">
+      {% if is_today %}
+        Heutige Spiele · Auto-Refresh alle 30s
+      {% else %}
+        {% if matches %}
+          Nächster Spieltag: {{ matches[0].kickoff|de('%A, %d.%m.%Y') }}
+        {% else %}
+          Aktuell keine Spiele geplant
+        {% endif %}
+      {% endif %}
+      <span id="lastSync" style="margin-left:8px;color:var(--text-muted)"></span>
+    </p>
+  </div>
+  <div class="header-actions">
+    <button id="liveRefreshBtn" class="btn-ghost btn-sm">🔄 Jetzt aktualisieren</button>
+    <button id="autoRefreshToggle" class="btn-primary btn-sm" data-on="1">⏸ Pause Auto</button>
+  </div>
+</div>
+
+{% if not matches %}
+  <div class="card center pad">
+    <p class="muted">🛌 Heute keine Begegnungen. Schau am Spieltag wieder vorbei!</p>
+    <a href="{{ url_for('main.schedule') }}" class="btn-primary btn-sm" style="margin-top:14px">→ Spiele/Tipps ansehen</a>
+  </div>
+{% else %}
+
+<div class="live-grid">
+
+  <!-- ============ LIVE MATCHES (links) ============ -->
+  <section class="live-matches-col">
+    <div class="card flat">
+      <div class="card-header live-section-head">
+        <h2>⚽ Spiele heute ({{ matches|length }})</h2>
+        <span class="live-count-pill" id="liveCountPill"></span>
+      </div>
+      <div id="liveMatchesList">
+        {% for m in matches %}
+          {% set p = user_preds.get(m.id) %}
+          <div class="live-match-card status-{{ m.status }}" data-match-id="{{ m.id }}">
+            <div class="lm-top">
+              <span class="lm-time">{{ m.kickoff|de('%H:%M') }}</span>
+              <span class="lm-md">ST {{ m.matchday }}</span>
+              <span class="lm-status status-{{ m.status }}">
+                {% if m.status == 'live' %}<span class="live-dot small"></span> LIVE
+                {% elif m.status == 'finished' %}✓ ENDE
+                {% else %}geplant{% endif %}
+              </span>
+            </div>
+            <div class="lm-body">
+              <div class="lm-team home">
+                <img src="{{ m.home_team.logo }}" alt="" class="lm-logo" />
+                <div class="lm-name" title="{{ m.home_team.name }}">{{ m.home_team.name }}</div>
+              </div>
+              <div class="lm-score-box">
+                <div class="lm-score">
+                  <span class="lm-home-score">{{ m.home_score if m.home_score is not none else '-' }}</span>
+                  <span class="lm-sep">:</span>
+                  <span class="lm-away-score">{{ m.away_score if m.away_score is not none else '-' }}</span>
+                </div>
+                {% if p %}
+                <div class="lm-tip">
+                  Tipp: <strong>{{ p.home_tip }}:{{ p.away_tip }}</strong>
+                  {% if p.joker %}<span class="joker">⚡</span>{% endif %}
+                  {% if m.status == 'finished' and p.points %}
+                    <span class="pts-pill good">+{{ p.points }}</span>
+                  {% elif m.status == 'live' and p.home_tip == m.home_score and p.away_tip == m.away_score %}
+                    <span class="pts-pill good">🎯 LIVE EXAKT</span>
+                  {% elif m.status == 'live' %}
+                    <span class="pts-pill">…</span>
+                  {% endif %}
+                </div>
+                {% endif %}
+              </div>
+              <div class="lm-team away">
+                <img src="{{ m.away_team.logo }}" alt="" class="lm-logo" />
+                <div class="lm-name" title="{{ m.away_team.name }}">{{ m.away_team.name }}</div>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LIVE LEADERBOARD (rechts) ============ -->
+  <aside class="live-leaderboard-col">
+    <div class="card flat">
+      <div class="card-header live-section-head">
+        <h2>🏆 Live-Tabelle</h2>
+        <span class="muted small">Reagiert in Echtzeit</span>
+      </div>
+      <div class="live-lb-list" id="liveLeaderboard">
+        {% for r in leaderboard %}
+          <div class="live-lb-row {{ 'me' if r.user.id == current_user.id }} {{ 'top1' if r.rank == 1 }}"
+               data-user-id="{{ r.user.id }}"
+               data-rank="{{ r.rank }}"
+               data-points="{{ r.points }}">
+            <div class="lb-rank">
+              <span class="rank-num-big">{{ r.rank }}</span>
+              <span class="rank-change" data-change=""></span>
+            </div>
+            <div class="lb-user">
+              {% if r.user.avatar and r.user.avatar != 'default.png' %}
+                <img src="{{ url_for('static', filename='uploads/' + r.user.avatar) }}" alt="" />
+              {% else %}
+                <div class="avatar-fallback small">{{ r.user.username[0]|upper }}</div>
+              {% endif %}
+              <div>
+                <strong>{{ r.user.username }}</strong>
+                <small class="muted">{{ r.exact }}E · {{ r.diff }}D · {{ r.tendency }}T</small>
+              </div>
+            </div>
+            <div class="lb-points">
+              <span class="points-num">{{ r.points }}</span>
+              <span class="points-delta" data-delta=""></span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </aside>
+
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const POLL = 30_000;
+  const matchesList = document.getElementById('liveMatchesList');
+  const lbList = document.getElementById('liveLeaderboard');
+  const refreshBtn = document.getElementById('liveRefreshBtn');
+  const toggleBtn = document.getElementById('autoRefreshToggle');
+  const lastSyncEl = document.getElementById('lastSync');
+  const liveCountPill = document.getElementById('liveCountPill');
+
+  if (!matchesList && !lbList) return;
+
+  let autoRefreshOn = true;
+  let lastSyncTs = Date.now();
+
+  // Snapshots zum Vergleich
+  let lastSnapshot = {
+    matches: {},  // id → {home_score, away_score, status}
+    leaderboard: {},  // user_id → {rank, points}
+  };
+
+  // Erstinitialisierung aus dem DOM
+  document.querySelectorAll('.live-match-card').forEach(el => {
+    const id = el.dataset.matchId;
+    lastSnapshot.matches[id] = {
+      home: el.querySelector('.lm-home-score').textContent.trim(),
+      away: el.querySelector('.lm-away-score').textContent.trim(),
+      status: [...el.classList].find(c => c.startsWith('status-'))?.replace('status-', ''),
+    };
+  });
+  document.querySelectorAll('.live-lb-row').forEach(el => {
+    lastSnapshot.leaderboard[el.dataset.userId] = {
+      rank: parseInt(el.dataset.rank),
+      points: parseInt(el.dataset.points),
+    };
+  });
+
+  function relTime(d) {
+    const s = Math.floor((Date.now() - d) / 1000);
+    if (s < 5) return 'gerade eben';
+    if (s < 60) return `vor ${s}s`;
+    if (s < 3600) return `vor ${Math.floor(s/60)}min`;
+    return `vor ${Math.floor(s/3600)}h`;
+  }
+
+  function updateSyncTimer() {
+    if (lastSyncEl) lastSyncEl.textContent = `· ${relTime(lastSyncTs)}`;
+  }
+  setInterval(updateSyncTimer, 1000);
+
+  function flashElement(el, cls = 'flash-update') {
+    el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), 1500);
+  }
+
+  function updateMatch(m) {
+    const card = matchesList?.querySelector(`.live-match-card[data-match-id="${m.id}"]`);
+    if (!card) return;
+    const prev = lastSnapshot.matches[m.id] || {};
+
+    // Score
+    const homeEl = card.querySelector('.lm-home-score');
+    const awayEl = card.querySelector('.lm-away-score');
+    const newHome = m.home_score === null ? '-' : String(m.home_score);
+    const newAway = m.away_score === null ? '-' : String(m.away_score);
+
+    if (homeEl.textContent.trim() !== newHome) {
+      homeEl.textContent = newHome;
+      flashElement(homeEl, 'score-change');
+    }
+    if (awayEl.textContent.trim() !== newAway) {
+      awayEl.textContent = newAway;
+      flashElement(awayEl, 'score-change');
+    }
+
+    // Status-Klasse + Badge
+    card.classList.remove('status-scheduled', 'status-live', 'status-finished');
+    card.classList.add(`status-${m.status}`);
+    const badge = card.querySelector('.lm-status');
+    if (badge) {
+      badge.className = `lm-status status-${m.status}`;
+      badge.innerHTML = m.status === 'live'    ? '<span class="live-dot small"></span> LIVE'
+                       : m.status === 'finished' ? '✓ ENDE'
+                       : 'geplant';
+    }
+
+    lastSnapshot.matches[m.id] = { home: newHome, away: newAway, status: m.status };
+  }
+
+  function rebuildLeaderboard(rows) {
+    if (!lbList) return;
+    // Vorher: alte Rang-Map
+    const oldRanks = {};
+    Object.entries(lastSnapshot.leaderboard).forEach(([uid, d]) => oldRanks[uid] = d.rank);
+    const oldPoints = {};
+    Object.entries(lastSnapshot.leaderboard).forEach(([uid, d]) => oldPoints[uid] = d.points);
+
+    // Neue Reihenfolge HTML bauen
+    const fragment = document.createDocumentFragment();
+    rows.forEach(r => {
+      let row = lbList.querySelector(`.live-lb-row[data-user-id="${r.user_id}"]`);
+      const rankBefore = oldRanks[r.user_id];
+      const pointsBefore = oldPoints[r.user_id];
+
+      if (!row) {
+        // neuer User → Element erzeugen (selten)
+        row = document.createElement('div');
+        row.className = `live-lb-row ${r.is_me ? 'me' : ''} ${r.rank === 1 ? 'top1' : ''}`;
+        row.dataset.userId = r.user_id;
+        row.innerHTML = `
+          <div class="lb-rank">
+            <span class="rank-num-big">${r.rank}</span>
+            <span class="rank-change" data-change=""></span>
+          </div>
+          <div class="lb-user">
+            <div class="avatar-fallback small">${r.username[0].toUpperCase()}</div>
+            <div><strong>${r.username}</strong>
+              <small class="muted">${r.exact}E · ${r.diff}D · ${r.tendency}T</small>
+            </div>
+          </div>
+          <div class="lb-points">
+            <span class="points-num">${r.points}</span>
+            <span class="points-delta" data-delta=""></span>
+          </div>`;
+      } else {
+        // Update inhalte
+        row.querySelector('.rank-num-big').textContent = r.rank;
+        row.querySelector('.points-num').textContent = r.points;
+        const small = row.querySelector('.lb-user small');
+        if (small) small.textContent = `${r.exact}E · ${r.diff}D · ${r.tendency}T`;
+        row.classList.toggle('top1', r.rank === 1);
+      }
+
+      // Rang-Veränderung anzeigen
+      const rankEl = row.querySelector('.rank-change');
+      if (rankBefore !== undefined && rankBefore !== r.rank) {
+        const diff = rankBefore - r.rank; // positive: aufgestiegen
+        if (diff > 0) {
+          rankEl.innerHTML = `<span class="rank-up">▲ ${diff}</span>`;
+          flashElement(row, 'row-up');
+        } else {
+          rankEl.innerHTML = `<span class="rank-down">▼ ${-diff}</span>`;
+          flashElement(row, 'row-down');
+        }
+        // Nach 8s ausblenden
+        setTimeout(() => { rankEl.innerHTML = ''; }, 8000);
+      }
+
+      // Punkte-Veränderung
+      const pointsEl = row.querySelector('.points-delta');
+      if (pointsBefore !== undefined && pointsBefore !== r.points) {
+        const diff = r.points - pointsBefore;
+        if (diff > 0) {
+          pointsEl.innerHTML = `<span class="points-up">+${diff}</span>`;
+          flashElement(row.querySelector('.points-num'), 'points-flash');
+        }
+        setTimeout(() => { pointsEl.innerHTML = ''; }, 8000);
+      }
+
+      fragment.appendChild(row);
+      lastSnapshot.leaderboard[r.user_id] = { rank: r.rank, points: r.points };
+    });
+    lbList.innerHTML = '';
+    lbList.appendChild(fragment);
+  }
+
+  async function refresh() {
+    if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = '⏳'; }
+    try {
+      const r = await fetch('/api/live/center', { credentials: 'same-origin' });
+      const data = await r.json();
+      if (!data.ok) {
+        console.warn('Live-Center API-Fehler:', data);
+        return;
+      }
+      lastSyncTs = Date.now();
+      // Live-Count berechnen
+      const liveCount = data.matches.filter(m => m.status === 'live').length;
+      if (liveCountPill) {
+        liveCountPill.textContent = liveCount > 0 ? `${liveCount} LIVE` : '';
+        liveCountPill.style.display = liveCount > 0 ? '' : 'none';
+      }
+      // Matches updaten
+      data.matches.forEach(updateMatch);
+      // Leaderboard
+      rebuildLeaderboard(data.leaderboard);
+      updateSyncTimer();
+    } catch(e) {
+      console.error('Live-Refresh fehlgeschlagen:', e);
+    } finally {
+      if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Jetzt aktualisieren'; }
+    }
+  }
+
+  let intervalId = null;
+  let eventSource = null;
+
+  function handleLiveData(data) {
+    lastSyncTs = Date.now();
+    // Live-Count berechnen
+    const liveCount = data.matches.filter(m => m.status === 'live').length;
+    if (liveCountPill) {
+      liveCountPill.textContent = liveCount > 0 ? `${liveCount} LIVE` : '';
+      liveCountPill.style.display = liveCount > 0 ? '' : 'none';
+    }
+    // Matches updaten
+    data.matches.forEach(updateMatch);
+    // Leaderboard
+    rebuildLeaderboard(data.leaderboard);
+    updateSyncTimer();
+  }
+
+  function startSSE() {
+    if (window.EventSource) {
+      stopSSE();
+      eventSource = new EventSource('/api/live/center/stream');
+      eventSource.onmessage = function(event) {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.ok) {
+            handleLiveData(data);
+          }
+        } catch(e) {
+          console.error("Fehler beim Verarbeiten der Live-Stream-Daten:", e);
+        }
+      };
+      eventSource.onerror = function() {
+        console.warn("Live-Stream abgebrochen. Verwende Polling als Fallback.");
+        stopSSE();
+        startPolling(); // Fallback
+      };
+      console.log("⚡ Echtzeit-Live-Stream (SSE) gestartet.");
+    } else {
+      startPolling();
+    }
+  }
+
+  function stopSSE() {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    intervalId = setInterval(refresh, POLL);
+  }
+  
+  function stopPolling() {
+    if (intervalId) clearInterval(intervalId);
+    intervalId = null;
+  }
+
+  if (refreshBtn) refreshBtn.addEventListener('click', refresh);
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      autoRefreshOn = !autoRefreshOn;
+      if (autoRefreshOn) {
+        startSSE();
+        toggleBtn.textContent = '⏸ Pause Auto';
+        toggleBtn.classList.add('btn-primary');
+        toggleBtn.classList.remove('btn-ghost');
+      } else {
+        stopSSE();
+        stopPolling();
+        toggleBtn.textContent = '▶ Auto starten';
+        toggleBtn.classList.remove('btn-primary');
+        toggleBtn.classList.add('btn-ghost');
+      }
+    });
+  }
+
+  // Initialer Live-Count
+  const initialLive = document.querySelectorAll('.live-match-card.status-live').length;
+  if (liveCountPill && initialLive > 0) {
+    liveCountPill.textContent = `${initialLive} LIVE`;
+  }
+
+  // Starte bevorzugt SSE Echtzeit-Verbindung
+  startSSE();
+  updateSyncTimer();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="{{ url_for('admin.dashboard') }}" class="back-link">← Admin</a>
+<h1>💨 Cache Monitor</h1>
+
+<style>
+  .cache-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .cache-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; }
+  .cache-card .value { font-size: 1.5rem; font-weight: bold; color: var(--primary, #3b82f6); }
+  .cache-card .label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+  .key-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .key-table th, .key-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+  .key-table th { background: var(--surface-2); }
+  .ttl-hot { color: #ef4444; }
+  .ttl-warm { color: #f59e0b; }
+  .ttl-cold { color: #22c55e; }
+</style>
+
+{% if not redis_ok %}
+<div class="card" style="border-color:#ef4444">
+  <p>❌ Redis nicht verfügbar: {{ redis_error or "Unbekannter Fehler" }}</p>
+  <p class="muted">Ohne Redis wird die App ohne Cache betrieben – das ist vollkommen in Ordnung.</p>
+</div>
+{% else %}
+
+<div class="cache-grid">
+  <div class="cache-card">
+    <div class="value">{{ stats.hit_rate }}%</div>
+    <div class="label">Hit Rate</div>
+  </div>
+  <div class="cache-card">
+    <div class="value">{{ stats.total_keys }}</div>
+    <div class="label">Keys</div>
+  </div>
+  <div class="cache-card">
+    <div class="value">{{ stats.used_memory_human }}</div>
+    <div class="label">Speicher</div>
+  </div>
+  <div class="cache-card">
+    <div class="value">{{ stats.uptime_days }}d</div>
+    <div class="label">Uptime</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+  <form method="post" action="{{ url_for('admin.admin_cache_flush_all') }}" style="display:inline; margin-right:8px">
+    <button type="submit" class="btn-ghost" onclick="return confirm('Gesamten Cache wirklich leeren?')">💣 Alles leeren</button>
+  </form>
+  <form method="post" action="{{ url_for('admin.admin_cache_flush_pattern') }}" style="display:inline">
+    <input type="text" name="pattern" placeholder="Muster z.B. leaderboard_*" class="input" style="width:220px; display:inline">
+    <button type="submit" class="btn-ghost">🗑️ Muster löschen</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Keys (max. 500)</h3>
+  {% if all_keys %}
+  <table class="key-table">
+    <thead>
+      <tr><th>Key</th><th>TTL</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for k in all_keys %}
+      <tr>
+        <td style="font-family:monospace">{{ k.name }}</td>
+        <td class="{% if k.ttl < 60 %}ttl-hot{% elif k.ttl < 300 %}ttl-warm{% else %}ttl-cold{% endif %}">
+          {% if k.ttl == -1 %}∞{% else %}{{ k.ttl }}s{% endif %}
+        </td>
+        <td style="text-align:right">
+          <form method="post" action="{{ url_for('admin.admin_cache_delete_key') }}" style="display:inline">
+            <input type="hidden" name="key" value="{{ k.name }}">
+            <button type="submit" class="btn-xs">Löschen</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Keine Keys im Cache.</p>
+  {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}

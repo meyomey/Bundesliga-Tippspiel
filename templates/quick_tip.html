@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+{% block title %}Schnelltipp Spieltag {{ matchday }}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/quick_tip.css', v=asset_version) }}" />
+{% endblock %}
+
+{% macro form_badge(form_list) %}
+  <span class="form-dots">
+  {% if form_list %}
+    {% for f in form_list|reverse %}
+      <span class="form-dot form-{{ f.result }}" title="{{ f.opponent.name }} ({{ 'H' if f.home else 'A' }}) {{ f.score }}">{{ f.result }}</span>
+    {% endfor %}
+  {% else %}
+    <span class="form-dot form-none">—</span>
+  {% endif %}
+  </span>
+{% endmacro %}
+
+{% block content %}
+
+<div class="qt-page">
+  
+  <!-- Header -->
+  <header class="qt-header">
+    <div class="qt-header-top">
+      <a href="{{ url_for('main.schedule', matchday=matchday) }}" class="qt-back-btn" aria-label="Zurück">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+      </a>
+      <div class="qt-header-text">
+        <h1>⚡ Schnelltipp</h1>
+        <p class="qt-subtitle">Spieltag {{ matchday }} · <span id="qtMatchCount">{{ matches|length }} Spiele</span></p>
+      </div>
+    </div>
+    
+    <!-- Fortschrittsbalken -->
+    <div class="qt-progress-container">
+      <div class="qt-progress-info">
+        <span class="qt-progress-label">Getippt:</span>
+        <span class="qt-progress-value" id="qtProgressText">0 / {{ matches|length }}</span>
+      </div>
+      <div class="qt-progress-track">
+        <div class="qt-progress-fill" id="qtProgressBar" style="width: 0%"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Status-Bar -->
+  <div class="qt-status-bar" id="qtStatusBar">
+    <span class="qt-status-icon" id="qtStatusIcon">💡</span>
+    <span class="qt-status-message" id="qtStatusMessage">Tipps werden automatisch gespeichert</span>
+  </div>
+
+  <form method="post" id="quickTipForm" class="qt-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
+
+    <!-- Spiele-Liste -->
+    <div class="qt-matches-list">
+    {% for m in matches %}
+      {% set p = pred_map.get(m.id) %}
+      {% set hpos = pos_map.get(m.home_team_id) %}
+      {% set apos = pos_map.get(m.away_team_id) %}
+      
+      <article class="qt-match-card {{ 'closed' if not m.is_open() }} {{ 'has-joker' if p and p.joker }} {{ 'has-tip' if p }}"
+               data-match-id="{{ m.id }}">
+        
+        <!-- Zeit-Leiste -->
+        <div class="qt-match-time" data-utc="{{ m.kickoff.strftime('%Y-%m-%dT%H:%M:%SZ') }}">
+          <span class="qt-day-name">--</span>
+          <span class="qt-time-display">--:--</span>
+          <span class="qt-date-display">--.--.</span>
+          <span class="qt-matchday-badge">ST {{ m.matchday }}</span>
+        </div>
+
+        <!-- Teams -->
+        <div class="qt-teams-row">
+          
+          <!-- Heimmannschaft -->
+          <div class="qt-team-block qt-home">
+            <div class="qt-team-logo-wrap">
+              <img src="{{ m.home_team.logo }}" alt="{{ m.home_team.name }}" class="qt-team-logo" onerror="this.style.display='none'" />
+            </div>
+            <div class="qt-team-details">
+              <div class="qt-team-name">{{ m.home_team.name }}</div>
+              <div class="qt-team-meta">
+                {% if hpos %}
+                  <span class="qt-pos-badge">{{ hpos.rank }}.</span>
+                {% endif %}
+                {{ form_badge(form_map.get(m.home_team_id, [])) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Tipp-Eingabe -->
+          <div class="qt-score-block">
+            <div class="qt-score-inputs">
+              <input type="number" 
+                     name="home_{{ m.id }}" 
+                     id="home_{{ m.id }}"
+                     min="0" 
+                     max="20" 
+                     value="{{ p.home_tip if p else '' }}"
+                     {{ 'disabled' if not m.is_open() }}
+                     class="qt-input-num" 
+                     placeholder="–"
+                     inputmode="numeric" 
+                     pattern="[0-9]*"
+                     data-tip-input="1" 
+                     data-match-id="{{ m.id }}" />
+              <span class="qt-colon">:</span>
+              <input type="number" 
+                     name="away_{{ m.id }}" 
+                     id="away_{{ m.id }}"
+                     min="0" 
+                     max="20" 
+                     value="{{ p.away_tip if p else '' }}"
+                     {{ 'disabled' if not m.is_open() }}
+                     class="qt-input-num" 
+                     placeholder="–"
+                     inputmode="numeric" 
+                     pattern="[0-9]*"
+                     data-tip-input="1" 
+                     data-match-id="{{ m.id }}" />
+            </div>
+            
+            <!-- Stepper Buttons (nur Mobile) -->
+            <div class="qt-steppers">
+              <button type="button" class="qt-step-btn" data-input="home_{{ m.id }}" data-dir="-1"
+                      {{ 'disabled' if not m.is_open() }} aria-label="Heim minus">−</button>
+              <button type="button" class="qt-step-btn" data-input="home_{{ m.id }}" data-dir="+1"
+                      {{ 'disabled' if not m.is_open() }} aria-label="Heim plus">+</button>
+              <div class="qt-stepper-gap"></div>
+              <button type="button" class="qt-step-btn" data-input="away_{{ m.id }}" data-dir="-1"
+                      {{ 'disabled' if not m.is_open() }} aria-label="Auswärts minus">−</button>
+              <button type="button" class="qt-step-btn" data-input="away_{{ m.id }}" data-dir="+1"
+                      {{ 'disabled' if not m.is_open() }} aria-label="Auswärts plus">+</button>
+            </div>
+          </div>
+
+          <!-- Auswärtsmannschaft -->
+          <div class="qt-team-block qt-away">
+            <div class="qt-team-details qt-away-details">
+              <div class="qt-team-name">{{ m.away_team.name }}</div>
+              <div class="qt-team-meta">
+                {% if apos %}
+                  <span class="qt-pos-badge">{{ apos.rank }}.</span>
+                {% endif %}
+                {{ form_badge(form_map.get(m.away_team_id, [])) }}
+              </div>
+            </div>
+            <div class="qt-team-logo-wrap">
+              <img src="{{ m.away_team.logo }}" alt="{{ m.away_team.name }}" class="qt-team-logo" onerror="this.style.display='none'" />
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Joker-Leiste -->
+        <div class="qt-joker-bar">
+          <label class="qt-joker-label {{ 'is-active' if p and p.joker }}">
+            <input type="radio" 
+                   name="joker_match" 
+                   value="{{ m.id }}"
+                   {{ 'checked' if p and p.joker }}
+                   {{ 'disabled' if not m.is_open() }} 
+                   class="qt-joker-input" />
+            <span class="qt-joker-icon">⚡</span>
+            <span class="qt-joker-text">Joker einsetzen</span>
+            <span class="qt-joker-hint">(×2 Punkte)</span>
+          </label>
+        </div>
+
+      </article>
+    {% endfor %}
+    </div>
+
+    <!-- Footer-Aktionen -->
+    <footer class="qt-footer">
+      <div class="qt-legend-bar">
+        <span class="qt-legend-item"><span class="form-dot form-W">S</span> Sieg</span>
+        <span class="qt-legend-item"><span class="form-dot form-D">U</span> Unentschieden</span>
+        <span class="qt-legend-item"><span class="form-dot form-L">N</span> Niederlage</span>
+        <span class="qt-legend-item"><span class="qt-pos-badge">1.</span> Tabelle</span>
+      </div>
+      
+      <div class="qt-actions">
+        <button type="button" class="qt-btn-random" id="qtRandomBtn">
+          🎲 Zufällig füllen
+        </button>
+        <button type="submit" class="qt-btn-save">
+          💾 Alle Tipps speichern
+        </button>
+      </div>
+    </footer>
+
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // ============= Zeitzone-Korrektur: UTC → Lokal =============
+  const DAYS_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+  
+  document.querySelectorAll('.qt-match-time').forEach(el => {
+    const utcStr = el.dataset.utc;
+    if (!utcStr) return;
+    
+    const d = new Date(utcStr);
+    if (isNaN(d.getTime())) return;
+    
+    el.querySelector('.qt-day-name').textContent = DAYS_DE[d.getDay()];
+    el.querySelector('.qt-time-display').textContent = 
+      String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    el.querySelector('.qt-date-display').textContent = 
+      String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.';
+  });
+
+  // ============= +/- Stepper =============
+  document.querySelectorAll('.qt-step-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const inputId = btn.dataset.input;
+      const input = document.getElementById(inputId);
+      if (!input || input.disabled) return;
+      
+      const dir = parseInt(btn.dataset.dir);
+      const cur = parseInt(input.value) || 0;
+      const next = Math.max(0, Math.min(20, cur + dir));
+      
+      input.value = next;
+      input.classList.add('input-flash');
+      setTimeout(() => input.classList.remove('input-flash'), 250);
+      input.dispatchEvent(new Event('change'));
+    });
+  });
+
+  // ============= Joker Toggle =============
+  document.querySelectorAll('.qt-joker-input').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('.qt-joker-label').forEach(l => l.classList.remove('is-active'));
+      if (radio.checked) {
+        radio.closest('.qt-joker-label').classList.add('is-active');
+      }
+    });
+  });
+
+  // ============= Fortschritt & Counter =============
+  function updateProgress() {
+    const total = document.querySelectorAll('.qt-match-card').length;
+    let tipped = 0;
+    
+    document.querySelectorAll('.qt-match-card').forEach(card => {
+      const matchId = card.dataset.matchId;
+      const home = document.getElementById('home_' + matchId);
+      const away = document.getElementById('away_' + matchId);
+      
+      const filled = home && away && home.value !== '' && away.value !== '';
+      if (filled) tipped++;
+      
+      card.classList.toggle('has-tip', filled);
+    });
+    
+    document.getElementById('qtProgressText').textContent = tipped + ' / ' + total;
+    document.getElementById('qtProgressBar').style.width = (total > 0 ? (tipped / total * 100) : 0) + '%';
+  }
+
+  document.querySelectorAll('.qt-input-num').forEach(inp => {
+    inp.addEventListener('change', updateProgress);
+    inp.addEventListener('input', updateProgress);
+  });
+  updateProgress();
+
+  // ============= Auto-Save =============
+  const statusBar = document.getElementById('qtStatusBar');
+  const statusIcon = document.getElementById('qtStatusIcon');
+  const statusMsg = document.getElementById('qtStatusMessage');
+
+  function setStatus(icon, message, type) {
+    statusIcon.textContent = icon;
+    statusMsg.textContent = message;
+    statusBar.className = 'qt-status-bar' + (type ? ' qt-status-' + type : '');
+  }
+
+  async function autoSave(matchId) {
+    const home = document.getElementById('home_' + matchId);
+    const away = document.getElementById('away_' + matchId);
+    if (!home || !away || home.value === '' || away.value === '') return;
+    
+    const jokerRadio = document.querySelector(`.qt-joker-input[value="${matchId}"]`);
+    const useJoker = jokerRadio && jokerRadio.checked;
+
+    const card = document.querySelector(`.qt-match-card[data-match-id="${matchId}"]`);
+    if (card) card.classList.add('save-flash');
+    setStatus('✅', 'Gespeichert', 'ok');
+
+    try {
+      const res = await fetch('/api/tip/' + matchId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          home_tip: parseInt(home.value) || 0,
+          away_tip: parseInt(away.value) || 0,
+          joker: !!useJoker,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      
+      setTimeout(() => {
+        card?.classList.remove('save-flash');
+        setStatus('💡', 'Tipps werden automatisch gespeichert', '');
+      }, 1000);
+    } catch (e) {
+      card?.classList.remove('save-flash');
+      setStatus('⚠️', 'Fehler beim Speichern', 'err');
+    }
+  }
+
+  document.querySelectorAll('.qt-input-num').forEach(inp => {
+    inp.addEventListener('blur', () => autoSave(inp.dataset.matchId));
+  });
+
+  document.querySelectorAll('.qt-joker-input').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (radio.checked) autoSave(radio.value);
+    });
+  });
+
+  // ============= Zufällig füllen =============
+  document.getElementById('qtRandomBtn')?.addEventListener('click', () => {
+    if (!confirm('Leere Felder mit zufälligen Tipps (0–3 Tore) füllen?')) return;
+    
+    document.querySelectorAll('.qt-input-num').forEach(inp => {
+      if (inp.value === '' && !inp.disabled) {
+        inp.value = Math.floor(Math.random() * 4);
+        inp.classList.add('input-flash');
+        setTimeout(() => inp.classList.remove('input-flash'), 250);
+      }
+    });
+    updateProgress();
+    setStatus('🎲', 'Zufällig befüllt – Speichern nicht vergessen!', 'warn');
+  });
+
+  // ============= Submit =============
+  document.getElementById('quickTipForm')?.addEventListener('submit', (e) => {
+    updateProgress();
+  });
+})();
+</script>
+{% endblock %}

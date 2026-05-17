@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Wulmstörper Tipprunde · Saison 2025/26{% endblock %}
+{% block content %}
+
+<!-- ========================================== HERO ========================================== -->
+<section class="lp-hero">
+  <div class="lp-hero-bg">
+    <div class="lp-orb orb-1"></div>
+    <div class="lp-orb orb-2"></div>
+    <div class="lp-orb orb-3"></div>
+  </div>
+
+  <div class="lp-hero-inner">
+    <span class="badge-pill">⚽ SAISON 2025/26 · SPIELTAG {{ current_md }}</span>
+    <h1 class="lp-h1">
+      Tipp dich an die <span class="accent">Spitze</span><br>
+      der Wulmstörper Tipprunde.
+    </h1>
+    <p class="lp-subtitle">
+      Vollständiger Spielplan, Joker-System und Live-Tabelle —
+      mach mit beim ehrgeizigsten Tippspiel deiner Freundesrunde.
+    </p>
+
+    <div class="lp-cta">
+      <a href="{{ url_for('auth.register') }}" class="btn-primary btn-lg">
+        🚀 Jetzt mitspielen
+      </a>
+      <a href="{{ url_for('auth.login') }}" class="btn-ghost btn-lg">
+        Bereits dabei? Anmelden
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================== TOP 3 PREVIEW ========================================== -->
+{% if top3 and top3[0].points > 0 %}
+<section class="lp-section">
+  <div class="lp-section-head">
+    <span class="overline">AKTUELLE RANGLISTE</span>
+    <h2>🏆 Wer führt die Liga an?</h2>
+  </div>
+  <div class="lp-podium">
+    {% for r in top3 %}
+      <div class="lp-podium-card lp-rank-{{ r.rank }}">
+        <div class="lp-podium-medal">
+          {% if r.rank == 1 %}🥇
+          {% elif r.rank == 2 %}🥈
+          {% else %}🥉{% endif %}
+        </div>
+        {% if r.user.avatar and r.user.avatar != 'default.png' %}
+          <img src="{{ url_for('static', filename='uploads/' + r.user.avatar) }}" class="lp-podium-avatar" alt="" />
+        {% else %}
+          <div class="lp-podium-avatar avatar-fallback">{{ r.user.username[0]|upper }}</div>
+        {% endif %}
+        <strong>{{ r.user.username }}</strong>
+        <div class="lp-podium-points">{{ r.points }} <small>Pkt</small></div>
+        {% if r.user.favorite_team %}
+        <div class="lp-podium-team">
+          <img src="{{ r.user.favorite_team.logo }}" alt="" />
+          <small>{{ r.user.favorite_team.short_name }}</small>
+        </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<!-- ========================================== FEATURES ========================================== -->
+<section class="lp-section">
+  <div class="lp-section-head">
+    <span class="overline">FEATURES</span>
+    <h2>✨ Alles was ein Tippspiel braucht</h2>
+    <p class="muted">Modern, transparent, mit echten Live-Daten von football-data.org.</p>
+  </div>
+
+  <div class="lp-feature-grid">
+    <div class="lp-feature">
+      <div class="lp-feature-icon" style="background: rgba(20,184,166,.15); color: var(--primary-text);">📅</div>
+      <h3>34 Spieltage</h3>
+      <p>Vollständiger Bundesliga-Spielplan mit echten Vereinslogos und Anstoßzeiten — automatisch synchronisiert.</p>
+    </div>
+
+    <div class="lp-feature">
+      <div class="lp-feature-icon" style="background: rgba(251,191,36,.15); color: var(--joker);">⚡</div>
+      <h3>Joker-System</h3>
+      <p>Ein Joker pro Spieltag verdoppelt deine Punkte. Setze ihn klug — und sichere dir den Spieltagsieg.</p>
+    </div>
+
+    <div class="lp-feature">
+      <div class="lp-feature-icon" style="background: rgba(239,68,68,.15); color: var(--danger);">🔴</div>
+      <h3>Live-Center</h3>
+      <p>Verfolge laufende Spiele in Echtzeit — Tabelle und Tipps aktualisieren sich automatisch.</p>
+    </div>
+
+    <div class="lp-feature">
+      <div class="lp-feature-icon" style="background: rgba(96,165,250,.15); color: #60a5fa;">🎯</div>
+      <h3>Schnelltipp</h3>
+      <p>Alle 9 Spiele eines Spieltags in einer Ansicht — mit Stepper, Form-Indikator und Auto-Save.</p>
+    </div>
+
+    <div class="lp-feature">
+      <div class="lp-feature-icon" style="background: rgba(245,158,11,.15); color: var(--warning);">⭐</div>
+      <h3>Sondertipps</h3>
+      <p>Wer wird Meister? Welche Vereine steigen ab? Eigene Bonusfragen für extra Spannung.</p>
+    </div>
+
+    <div class="lp-feature">
+      <div class="lp-feature-icon" style="background: rgba(168,85,247,.15); color: #c084fc;">🏆</div>
+      <h3>Spieltagsieger</h3>
+      <p>Automatische Auswertung jedes Spieltags — wer triumphiert holt sich Badges und Hall-of-Fame-Ruhm.</p>
+    </div>
+
+    <div class="lp-feature">
+      <div class="lp-feature-icon" style="background: rgba(20,184,166,.15); color: var(--primary-text);">📊</div>
+      <h3>Echte Statistiken</h3>
+      <p>Exakte Tipps, Tordifferenz, Tendenz — alles im Detail. Plus persönliche Formkurve.</p>
+    </div>
+
+    <div class="lp-feature">
+      <div class="lp-feature-icon" style="background: rgba(251,191,36,.15); color: var(--joker);">🏅</div>
+      <h3>Badges &amp; Gamification</h3>
+      <p>Sammle Auszeichnungen für besondere Leistungen — voll konfigurierbar vom Admin.</p>
+    </div>
+
+    <div class="lp-feature">
+      <div class="lp-feature-icon" style="background: rgba(239,68,68,.15); color: var(--danger);">💰</div>
+      <h3>Saisonpott</h3>
+      <p>Transparenter Einsatz, klare Verteilung. Jeder sieht wer bezahlt hat und was am Ende winkt.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================== HOW IT WORKS ========================================== -->
+<section class="lp-section lp-howto">
+  <div class="lp-section-head">
+    <span class="overline">SO FUNKTIONIERT'S</span>
+    <h2>🚀 In drei Schritten startklar</h2>
+  </div>
+  <div class="lp-steps">
+    <div class="lp-step">
+      <div class="lp-step-num">1</div>
+      <h3>Konto anlegen</h3>
+      <p>Spielername, E-Mail und Passwort — fertig. Optional: Lieblingsverein und Profilbild.</p>
+    </div>
+    <div class="lp-step">
+      <div class="lp-step-num">2</div>
+      <h3>Tipps abgeben</h3>
+      <p>Tipp jedes Spiel bis zum Anstoß. Setze einmal pro Spieltag deinen Joker für doppelte Punkte.</p>
+    </div>
+    <div class="lp-step">
+      <div class="lp-step-num">3</div>
+      <h3>Mitfiebern</h3>
+      <p>Verfolge live wie sich Tabelle und Punkte verändern. Wer am Saisonende vorne steht, gewinnt den Pott.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================== CTA ========================================== -->
+<section class="lp-cta-section">
+  <h2>Bereit, oben mitzumischen?</h2>
+  <p class="muted">Kostenlos, in 30 Sekunden. Keine versteckten Kosten — nur dein Einsatz in den Pott.</p>
+  <a href="{{ url_for('auth.register') }}" class="btn-primary btn-lg">⚽ Konto erstellen</a>
+  <p class="lp-cta-meta">
+    Bereits registriert? <a href="{{ url_for('auth.login') }}">Hier anmelden →</a>
+  </p>
+</section>
+
+{% endblock %}

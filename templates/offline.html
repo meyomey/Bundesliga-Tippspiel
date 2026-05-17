@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline – Wulmstörper Tipprunde</title>
+  <style>
+    :root { --bg:#0f1117; --card:#1e293b; --text:#e2e8f0; --primary:#3b82f6; --muted:#94a3b8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); display:flex; align-items:center; justify-content:center; min-height:100vh; text-align:center; }
+    .box { background: var(--card); padding: 40px 32px; border-radius: 16px; max-width: 380px; width: 90%; border: 1px solid #2d3748; }
+    .icon { font-size: 64px; margin-bottom: 12px; }
+    h1 { margin: 0 0 8px; font-size: 1.5rem; }
+    p { color: var(--muted); margin: 0 0 20px; line-height: 1.5; }
+    .retry { display:inline-block; padding: 10px 20px; background: var(--primary); color: white; text-decoration:none; border-radius: 8px; font-weight: bold; border:none; cursor:pointer; }
+    .retry:disabled { opacity: 0.6; cursor: not-allowed; }
+    #status { margin-top: 12px; font-size: 0.85rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">📡❌</div>
+    <h1>Du bist offline</h1>
+    <p>Die Wulmstörper Tipprunde ist momentan nicht erreichbar. Prüfe deine Internetverbindung.</p>
+    <button class="retry" id="retryBtn" onclick="checkOnline()">🔄 Erneut versuchen</button>
+    <div id="status"></div>
+  </div>
+  <script>
+    let countdown = 30;
+    const btn = document.getElementById('retryBtn');
+    const status = document.getElementById('status');
+
+    function checkOnline() {
+      btn.disabled = true;
+      status.textContent = "Prüfe Verbindung …";
+      fetch('/api/ping', { method: 'GET', cache: 'no-store' })
+        .then(r => { if (r.ok) window.location.reload(); else throw new Error('offline'); })
+        .catch(() => { btn.disabled = false; status.textContent = "Noch offline."; });
+    }
+
+    setInterval(() => {
+      countdown--;
+      if (countdown <= 0) { countdown = 30; checkOnline(); }
+      else if (!btn.disabled) { status.textContent = `Nächster Versuch in ${countdown}s …`; }
+    }, 1000);
+  </script>
+</body>
+</html>

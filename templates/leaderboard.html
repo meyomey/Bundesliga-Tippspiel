@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% block title %}Rangliste{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>🏆 Rangliste{% if current_md %} <small class="muted">· ST {{ current_md }}</small>{% endif %}</h1>
+    <p class="muted small">Bei Gleichstand: Punkte → Exakt → Diff → Tendenz → Tipps</p>
+  </div>
+  <div class="header-actions">
+    <select onchange="location.href=this.value">
+      <option value="{{ url_for('main.leaderboard') }}">Gesamt</option>
+      {% for md in matchdays %}
+      <option value="{{ url_for('main.leaderboard', matchday=md) }}" {{ 'selected' if md == current_md }}>Spieltag {{ md }}</option>
+      {% endfor %}
+    </select>
+    <a href="{{ url_for('main.matchday_winners') }}" class="btn-ghost btn-sm" title="Spieltagsieger-Chronik">🏆 Sieger</a>
+    <a href="{{ url_for('main.export_csv') }}" class="btn-ghost btn-sm">📥</a>
+  </div>
+</div>
+
+{# Macro für die Tooltip-Card.
+   Voller Name nur, wenn der User ihn öffentlich freigegeben hat
+   (oder der aktuelle Betrachter Admin ist - der sieht alles).
+   None wird als True interpretiert (Default = öffentlich). #}
+{% macro player_tooltip(user) %}
+  {% set is_public = user.show_full_name in (true, none, 1) %}
+  {% set show_name = user.full_name and (is_public or current_user.is_admin or user.id == current_user.id) %}
+  <span class="player-tooltip" role="tooltip">
+    <span class="pt-head">
+      {% if user.avatar and user.avatar != 'default.png' %}
+        <img src="{{ url_for('static', filename='uploads/' + user.avatar) }}" alt="" class="pt-avatar" />
+      {% else %}
+        <span class="pt-avatar avatar-fallback">{{ user.username[0]|upper }}</span>
+      {% endif %}
+      <span class="pt-names">
+        <strong>{{ user.username }}</strong>
+        {% if show_name %}
+          <small>
+            {{ user.full_name }}
+            {% if not user.show_full_name and current_user.is_admin %}
+              <span class="pt-private-tag" title="Nur für Admin sichtbar">🔒</span>
+            {% endif %}
+          </small>
+        {% endif %}
+      </span>
+    </span>
+    {% if user.favorite_team %}
+      <span class="pt-team">
+        <img src="{{ user.favorite_team.logo }}" alt="" />
+        <span>
+          <small>Lieblingsverein</small>
+          <strong>{{ user.favorite_team.name }}</strong>
+        </span>
+      </span>
+    {% else %}
+      <span class="pt-team empty">
+        <span>—</span><small>kein Lieblingsverein angegeben</small>
+      </span>
+    {% endif %}
+  </span>
+{% endmacro %}
+
+<!-- ===== Mobile: Card Layout (Details eingeklappt by default) ===== -->
+<div class="card flat">
+  <div class="lb-mobile-actions">
+    <button type="button" class="btn-ghost btn-xs" id="lbExpandAll">⤵ Alle ausklappen</button>
+  </div>
+  <div class="leaderboard-cards">
+  {% for r in rows %}
+    <details class="lb-card {{ 'me' if r.user.id == current_user.id }} {{ 'top1' if r.rank == 1 }}">
+      <summary class="lb-card-head">
+        <div class="lb-card-rank">
+          {% if r.rank == 1 %}🥇
+          {% elif r.rank == 2 %}🥈
+          {% elif r.rank == 3 %}🥉
+          {% else %}<span class="rank-num">#{{ r.rank }}</span>{% endif %}
+        </div>
+        <div class="lb-card-user has-tooltip" tabindex="0">
+          {% if r.user.avatar and r.user.avatar != 'default.png' %}
+            <img src="{{ url_for('static', filename='uploads/' + r.user.avatar) }}" alt="" />
+          {% else %}
+            <div class="avatar-fallback small">{{ r.user.username[0]|upper }}</div>
+          {% endif %}
+          <strong>{{ r.user.username }}</strong>
+          {% if r.user.favorite_team %}
+            <img src="{{ r.user.favorite_team.logo }}" alt="" class="lb-fav-mini" title="{{ r.user.favorite_team.name }}" />
+          {% endif %}
+          {% set tr = trends.get(r.user.id) if trends else none %}
+          {% if tr and tr.delta != 0 %}
+            {% if tr.delta > 0 %}<span class="lb-trend up">▲ {{ tr.delta }}</span>
+            {% else %}<span class="lb-trend down">▼ {{ -tr.delta }}</span>{% endif %}
+          {% endif %}
+          {{ player_tooltip(r.user) }}
+        </div>
+        <div class="lb-card-points">{{ r.points }}</div>
+        <span class="lb-expand-arrow" aria-hidden="true">▾</span>
+      </summary>
+
+      <div class="lb-card-body">
+        <div class="lb-card-stats">
+          <div class="lb-stat-mini">
+            <span class="num exact-col">{{ r.exact }}</span>
+            <span class="lbl">Exakt</span>
+          </div>
+          <div class="lb-stat-mini">
+            <span class="num diff-col">{{ r.diff }}</span>
+            <span class="lbl">Diff</span>
+          </div>
+          <div class="lb-stat-mini">
+            <span class="num tend-col">{{ r.tendency }}</span>
+            <span class="lbl">Tend</span>
+          </div>
+          <div class="lb-stat-mini">
+            <span class="num wrong-col">{{ r.wrong }}</span>
+            <span class="lbl">Falsch</span>
+          </div>
+        </div>
+
+        <div class="lb-card-stats">
+          <div class="lb-stat-mini">
+            <span class="num">{{ r.tips }}</span>
+            <span class="lbl">Tipps</span>
+          </div>
+          <div class="lb-stat-mini">
+            <span class="num joker">{{ r.joker_used }}</span>
+            <span class="lbl">⚡ Joker</span>
+          </div>
+          <div class="lb-stat-mini">
+            <span class="num" style="color:var(--joker)">{{ md_wins.get(r.user.id, 0) }}</span>
+            <span class="lbl">🏆 ST-Siege</span>
+          </div>
+          <div class="lb-stat-mini">
+            <span class="num">{{ r.exact_quote }}%</span>
+            <span class="lbl">Quote</span>
+          </div>
+        </div>
+
+        {% if r.user.id != current_user.id %}
+        <div class="lb-card-actions">
+          <a href="{{ url_for('main.head_to_head', user_id=r.user.id) }}" class="btn-ghost btn-xs">⚔ H2H Vergleich</a>
+        </div>
+        {% endif %}
+      </div>
+    </details>
+  {% endfor %}
+  </div>
+
+  <!-- ===== Desktop: Tabellenlayout ===== -->
+  <div class="scroll-x">
+    <table class="table leaderboard-table extended">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Spieler</th>
+          <th class="center" title="Tipps insgesamt">∑</th>
+          <th class="center exact-col">EX</th>
+          <th class="center diff-col">DIF</th>
+          <th class="center tend-col">TEN</th>
+          <th class="center wrong-col">✗</th>
+          <th class="center" title="Joker">⚡</th>
+          <th class="center" title="Spieltagsiege">🏆</th>
+          <th class="center">QUOTE</th>
+          <th class="right">PKT</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr class="{{ 'me' if r.user.id == current_user.id }} {{ 'top1' if r.rank == 1 }}">
+          <td class="rank-cell">
+            {% if r.rank == 1 %}🥇
+            {% elif r.rank == 2 %}🥈
+            {% elif r.rank == 3 %}🥉
+            {% else %}<span class="rank-num">#{{ r.rank }}</span>{% endif %}
+          </td>
+          <td>
+            <div class="user-cell has-tooltip" tabindex="0">
+              {% if r.user.avatar and r.user.avatar != 'default.png' %}
+                <img src="{{ url_for('static', filename='uploads/' + r.user.avatar) }}" />
+              {% else %}
+                <div class="avatar-fallback small">{{ r.user.username[0]|upper }}</div>
+              {% endif %}
+              <strong>{{ r.user.username }}</strong>
+              {% if r.user.favorite_team %}
+                <img src="{{ r.user.favorite_team.logo }}" alt="" class="lb-fav-mini" title="{{ r.user.favorite_team.name }}" />
+              {% endif %}
+              {% set tr = trends.get(r.user.id) if trends else none %}
+              {% if tr %}
+                {% if tr.delta > 0 %}<span class="lb-trend up" title="{{ tr.delta }} Plätze gut"> ▲ {{ tr.delta }}</span>
+                {% elif tr.delta < 0 %}<span class="lb-trend down" title="{{ -tr.delta }} Plätze schlechter">▼ {{ -tr.delta }}</span>{% endif %}
+                {% if tr.sparkline|length > 1 %}
+                  {% set max_v = (tr.sparkline|max) or 1 %}
+                  {% set step = (60 / (tr.sparkline|length - 1)) %}
+                  <svg class="lb-sparkline" viewBox="0 0 60 20" preserveAspectRatio="none" title="Punkte letzte {{ tr.sparkline|length }} Spieltage">
+                    <path class="sl-area" d="M 0 20
+                      {% for v in tr.sparkline %}L {{ (loop.index0 * step)|round(1) }} {{ (20 - (v / max_v) * 18)|round(1) }} {% endfor %}
+                      L 60 20 Z" />
+                    <path class="sl-line" d="M
+                      {% for v in tr.sparkline %}{{ (loop.index0 * step)|round(1) }} {{ (20 - (v / max_v) * 18)|round(1) }}{% if not loop.last %} L {% endif %}{% endfor %}" />
+                    <circle cx="60" cy="{{ (20 - (tr.sparkline[-1] / max_v) * 18)|round(1) }}" r="2.2" />
+                  </svg>
+                {% endif %}
+              {% endif %}
+              {{ player_tooltip(r.user) }}
+            </div>
+          </td>
+          <td class="center">{{ r.tips }}</td>
+          <td class="center exact-col"><strong>{{ r.exact }}</strong></td>
+          <td class="center diff-col">{{ r.diff }}</td>
+          <td class="center tend-col">{{ r.tendency }}</td>
+          <td class="center wrong-col muted">{{ r.wrong }}</td>
+          <td class="center">{{ r.joker_used }}</td>
+          <td class="center"><strong style="color:var(--joker)">{{ md_wins.get(r.user.id, 0) }}</strong></td>
+          <td class="center"><span class="quote-pill">{{ r.exact_quote }}%</span></td>
+          <td class="right pts-num">{{ r.points }}</td>
+          <td>
+            {% if r.user.id != current_user.id %}
+            <a href="{{ url_for('main.head_to_head', user_id=r.user.id) }}" class="btn-ghost btn-xs">⚔</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="legend">
+  <span><b class="exact-col">EX</b> Exakter Tipp</span>
+  <span><b class="diff-col">DIF</b> Tordifferenz</span>
+  <span><b class="tend-col">TEN</b> Tendenz</span>
+  <span><b class="wrong-col">✗</b> Falsch</span>
+  <span><b>⚡</b> Joker</span>
+  <span><b>🏆</b> Spieltagsiege</span>
+</div>
+
+{% endblock %}

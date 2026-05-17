@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Admin · Wulmstörper Tipprunde{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div class="admin-header">
+  <div>
+    <span class="overline">VERWALTUNG</span>
+    <h1>Admin-Bereich</h1>
+    <p class="muted small">Spieler, Spiele, Punkte und alle Einstellungen an einem Ort.</p>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('admin.sync') }}" class="btn-primary btn-sm" title="Spiele &amp; Ergebnisse von der API holen">
+      ⚡ API Sync starten
+    </a>
+  </div>
+</div>
+
+<!-- Statistik-Bar -->
+<div class="admin-stats">
+  <div class="admin-stat">
+    <div class="as-icon">👥</div>
+    <div>
+      <div class="as-num">{{ stats.users }}</div>
+      <div class="as-lbl">Spieler</div>
+    </div>
+  </div>
+  <div class="admin-stat">
+    <div class="as-icon">📅</div>
+    <div>
+      <div class="as-num">{{ stats.matches }}</div>
+      <div class="as-lbl">Spiele <small class="muted">({{ stats.finished }} beendet)</small></div>
+    </div>
+  </div>
+  <div class="admin-stat">
+    <div class="as-icon">🎯</div>
+    <div>
+      <div class="as-num">{{ stats.predictions }}</div>
+      <div class="as-lbl">Tipps abgegeben</div>
+    </div>
+  </div>
+  <div class="admin-stat highlight">
+    <div class="as-icon">💰</div>
+    <div>
+      <div class="as-num">{{ pot.pot_total }} {{ pot.currency }}</div>
+      <div class="as-lbl">{{ pot.paid_count }}/{{ pot.total_count }} bezahlt</div>
+    </div>
+  </div>
+</div>
+
+<!-- Hauptbereiche -->
+<div class="admin-section">
+  <h2 class="admin-section-title">📊 Spielbetrieb</h2>
+  <div class="admin-grid-3">
+    <a href="{{ url_for('admin.matches') }}" class="admin-tile">
+      <div class="t-icon">📅</div>
+      <h3>Spiele &amp; Ergebnisse</h3>
+      <p>Spielplan ansehen, Ergebnisse manuell bearbeiten</p>
+    </a>
+    <a href="{{ url_for('admin.sync') }}" class="admin-tile">
+      <div class="t-icon">⚡</div>
+      <h3>API Sync</h3>
+      <p>football-data.org &amp; OpenLigaDB Fallback</p>
+    </a>
+    <a href="{{ url_for('admin.special_questions') }}" class="admin-tile">
+      <div class="t-icon">⭐</div>
+      <h3>Sonderfragen</h3>
+      <p>Meister, Torschützenkönig, eigene Bonusfragen</p>
+    </a>
+  </div>
+</div>
+
+<div class="admin-section">
+  <h2 class="admin-section-title">👥 Spieler &amp; Pott</h2>
+  <div class="admin-grid-3">
+    <a href="{{ url_for('admin.users') }}" class="admin-tile">
+      <div class="t-icon">👥</div>
+      <h3>Spielerverwaltung</h3>
+      <p>Spieler bearbeiten, Bezahlung markieren, Daten ändern</p>
+    </a>
+    <a href="{{ url_for('admin.admin_prizes') }}" class="admin-tile">
+      <div class="t-icon">🏆</div>
+      <h3>Preise &amp; Pott</h3>
+      <p>{{ pot.pot_total }} {{ pot.currency }} im Pott · {{ pot.paid_count }}/{{ pot.total_count }} bezahlt</p>
+    </a>
+    <a href="{{ url_for('admin.badges') }}" class="admin-tile">
+      <div class="t-icon">🏅</div>
+      <h3>Badges</h3>
+      <p>Auto-Vergabe konfigurieren oder manuell verteilen</p>
+    </a>
+    <a href="{{ url_for('admin.bots') }}" class="admin-tile">
+      <div class="t-icon">🤖</div>
+      <h3>KI-Tippgegner</h3>
+      <p>Tipp-Bots konfigurieren, Schwierigkeit anpassen, Tipps anstoßen</p>
+    </a>
+  </div>
+</div>
+
+<div class="admin-section">
+  <h2 class="admin-section-title">⚙ Einstellungen &amp; Wartung</h2>
+  <div class="admin-grid-3">
+    <a href="{{ url_for('admin.settings') }}" class="admin-tile">
+      <div class="t-icon">🛠</div>
+      <h3>Einstellungen</h3>
+      <p>Punkteberechnung · Pott-Einsatz · E-Mail · API-Keys · Push</p>
+    </a>
+    <a href="{{ url_for('admin.backup_page') }}" class="admin-tile">
+      <div class="t-icon">💾</div>
+      <h3>Backup &amp; Restore</h3>
+      <p>Datenbank sichern oder aus einer Backup-Datei wiederherstellen</p>
+    </a>
+    <a href="{{ url_for('admin.cache_page') }}" class="admin-tile">
+      <div class="t-icon">⚡</div>
+      <h3>Cache-Monitoring</h3>
+      <p>Redis-Auslastung ansehen, Cache manuell leeren (Flush)</p>
+    </a>
+  </div>
+</div>
+
+<!-- Daten-Tools (eingeklappt, nur bei Bedarf) -->
+<details class="admin-danger-zone">
+  <summary>
+    <span class="adz-title">🛠 Daten-Tools &amp; Saison-Archiv</span>
+    <small class="muted">Nur bei Bedarf öffnen</small>
+  </summary>
+  <div class="adz-body">
+    <div class="adz-row">
+      <div>
+        <strong>🧹 Demo-Daten entfernen</strong>
+        <p class="muted small">Löscht alle vorgenerierten Demo-Spiele (vor dem ersten API-Sync). Beim Sync passiert das automatisch.</p>
+      </div>
+      <form method="post" action="{{ url_for('admin.purge_demo') }}"
+            onsubmit="return confirm('Alle Demo-Matches (ohne external_id) löschen? Tipps zu diesen Spielen gehen verloren.')">
+        <button type="submit" class="btn-ghost btn-sm">Demo-Daten löschen</button>
+      </form>
+    </div>
+
+    <div class="adz-row">
+      <div>
+        <strong>🏛 Aktuelle Saison archivieren</strong>
+        <p class="muted small">Schreibt die laufende Tabelle in das Saison-Archiv für die Ewige Tabelle.</p>
+      </div>
+      <form method="post" action="{{ url_for('admin.archive_current_season') }}" class="inline-form">
+        <input type="text" name="season_label" class="input" placeholder="z.B. 2025/26" required />
+        <button type="submit" class="btn-primary btn-sm"
+                onclick="return confirm('Aktuelle Tabelle als historische Saison archivieren?')">
+          Archivieren
+        </button>
+      </form>
+    </div>
+
+    <div class="adz-row danger">
+      <div>
+        <strong style="color: var(--danger)">⚠️ Notfall: Alle Spiele löschen</strong>
+        <p class="muted small">Setzt den kompletten Spielplan zurück (inkl. aller Tipps). Nicht rückgängig machbar!</p>
+      </div>
+      <form method="post" action="{{ url_for('admin.purge_all_matches') }}"
+            onsubmit="return confirm('⚠️ ACHTUNG: ALLE Matches und Tipps werden gelöscht! Sicher?')">
+        <button type="submit" class="btn-danger btn-sm">Alle Spiele löschen</button>
+      </form>
+    </div>
+  </div>
+</details>
+
+{% endblock %}

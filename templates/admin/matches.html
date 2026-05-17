@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Spiele · Admin{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.dashboard') }}" class="back-link">← Admin</a>
+
+<div class="page-header">
+  <div>
+    <span class="overline">SPIELBETRIEB</span>
+    <h1>📅 Spiele &amp; Ergebnisse</h1>
+    <p class="muted small">Spieltag {{ current_md }} · {{ matches|length }} Begegnungen</p>
+  </div>
+  <div class="header-actions">
+    <select onchange="location.href='?matchday='+this.value" class="input" style="width:auto">
+      {% for md in matchdays %}
+        <option value="{{ md }}" {{ 'selected' if md == current_md }}>Spieltag {{ md }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<div class="card flat scroll-x">
+  <table class="table admin-matches-table">
+    <thead>
+      <tr>
+        <th>Anpfiff</th>
+        <th>Begegnung</th>
+        <th class="center">Status</th>
+        <th class="center">Ergebnis</th>
+        <th class="right">Aktion</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for m in matches %}
+      <tr class="{{ 'is-live' if m.status == 'live' }}">
+        <td>
+          <small class="muted">{{ m.kickoff|de('%a, %d.%m.') }}</small><br>
+          <strong>{{ m.kickoff|de('%H:%M') }}</strong>
+        </td>
+        <td>
+          <div class="amt-teams">
+            <img src="{{ m.home_team.logo }}" class="mini-logo" alt="" />
+            <strong>{{ m.home_team.short_name }}</strong>
+            <span class="muted">vs</span>
+            <strong>{{ m.away_team.short_name }}</strong>
+            <img src="{{ m.away_team.logo }}" class="mini-logo" alt="" />
+          </div>
+        </td>
+        <td class="center">
+          <span class="status status-{{ m.status }}">
+            {% if m.status == 'finished' %}beendet
+            {% elif m.status == 'live' %}LIVE
+            {% else %}geplant{% endif %}
+          </span>
+        </td>
+        <td class="center">
+          {% if m.home_score is not none %}
+            <strong style="font-size:16px">{{ m.home_score }} : {{ m.away_score }}</strong>
+          {% else %}
+            <span class="muted">— : —</span>
+          {% endif %}
+        </td>
+        <td class="right">
+          <a href="{{ url_for('admin.edit_result', match_id=m.id) }}" class="btn-ghost btn-sm">✏️ Ergebnis</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

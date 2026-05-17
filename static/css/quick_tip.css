@@ -1,0 +1,539 @@
+/* ============================================================
+   SCHNELLTIPP – Komplett neu gestaltetes Design
+   Fokus auf: Lesbarkeit, große Team-Namen, mobile-first
+   ============================================================ */
+
+/* === Globale Container === */
+.qt-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* === Header === */
+.qt-header {
+  margin-bottom: 16px;
+}
+.qt-header-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.qt-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.qt-back-btn:hover {
+  background: var(--primary);
+  color: #000;
+  border-color: var(--primary);
+}
+.qt-header-text h1 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+}
+.qt-subtitle {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.qt-subtitle strong,
+#qtMatchCount {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* Fortschrittsleiste im Header */
+.qt-progress-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.qt-progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.qt-progress-value {
+  font-weight: 700;
+  color: var(--text);
+}
+.qt-progress-track {
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.qt-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* === Status Bar === */
+.qt-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+.qt-status-icon {
+  font-size: 16px;
+}
+.qt-status-bar.qt-status-ok {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.qt-status-bar.qt-status-err {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.qt-status-bar.qt-status-warn {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+/* === Match Cards === */
+.qt-matches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qt-match-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.qt-match-card.closed {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.qt-match-card.has-tip {
+  border-left: 4px solid var(--primary);
+}
+.qt-match-card.has-joker {
+  border-color: var(--joker);
+  background: linear-gradient(135deg, rgba(251,191,36,.06), transparent);
+  box-shadow: 0 2px 12px rgba(251,191,36,.1);
+}
+.qt-match-card.has-tip.has-joker {
+  border-left-color: var(--joker);
+}
+.qt-match-card.save-flash {
+  animation: saveFlash 0.6s ease-out;
+}
+
+@keyframes saveFlash {
+  0% { background: rgba(16,185,129,.15); }
+  100% { background: var(--surface); }
+}
+
+/* Zeit-Leiste */
+.qt-match-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.qt-day-name {
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.qt-time-display {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--primary);
+}
+.qt-date-display {
+  color: var(--text-muted);
+}
+.qt-matchday-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Teams-Zeile */
+.qt-teams-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Team-Block */
+.qt-team-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.qt-home {
+  justify-content: flex-end;
+  text-align: right;
+}
+.qt-away {
+  justify-content: flex-start;
+  text-align: left;
+}
+.qt-team-logo-wrap {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qt-team-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.qt-team-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.qt-away-details {
+  align-items: flex-start;
+}
+.qt-home .qt-team-details {
+  align-items: flex-end;
+}
+
+/* ★★★ WICHTIG: Mannschaftsnamen – GROß & LESBAR ★★★ */
+.qt-team-name {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+  /* Keine Abschneidung mehr! */
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+@media (min-width: 480px) {
+  .qt-team-name {
+    font-size: 16px;
+  }
+}
+
+.qt-team-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.qt-home .qt-team-meta {
+  justify-content: flex-end;
+}
+.qt-away .qt-team-meta {
+  justify-content: flex-start;
+}
+
+/* Form-Dots */
+.form-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.form-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: 800;
+  color: #fff;
+}
+.form-W { background: var(--primary); }
+.form-D { background: var(--warning); }
+.form-L { background: var(--danger); }
+.form-none { background: var(--surface-2); color: var(--text-muted); }
+
+.qt-pos-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Score-Block */
+.qt-score-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 120px;
+}
+.qt-score-inputs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.qt-input-num {
+  width: 44px;
+  height: 48px;
+  padding: 0;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+  appearance: textfield;
+  transition: all 0.15s;
+}
+.qt-input-num::-webkit-outer-spin-button,
+.qt-input-num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.qt-input-num:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.2);
+}
+.qt-input-num.input-flash {
+  animation: inputFlash 0.25s ease-out;
+}
+@keyframes inputFlash {
+  0% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.qt-colon {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+/* Stepper */
+.qt-steppers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.qt-step-btn {
+  width: 38px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.1s;
+}
+.qt-step-btn:hover:not([disabled]) {
+  background: var(--primary);
+  color: #000;
+  border-color: var(--primary);
+}
+.qt-step-btn:active {
+  transform: scale(0.92);
+}
+.qt-step-btn[disabled] {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.qt-stepper-gap {
+  width: 14px;
+}
+
+/* Joker-Bar */
+.qt-joker-bar {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.qt-joker-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  user-select: none;
+}
+.qt-joker-label:hover {
+  border-color: var(--joker);
+}
+.qt-joker-input {
+  display: none;
+}
+.qt-joker-icon {
+  font-size: 18px;
+  transition: transform 0.2s;
+}
+.qt-joker-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+.qt-joker-label.is-active {
+  background: var(--joker);
+  color: #000;
+  border-color: var(--joker);
+  box-shadow: 0 0 0 3px rgba(251,191,36,.2);
+}
+.qt-joker-label.is-active .qt-joker-icon {
+  transform: scale(1.2) rotate(-10deg);
+  filter: drop-shadow(0 0 4px rgba(0,0,0,.3));
+}
+
+/* === Footer === */
+.qt-footer {
+  margin-top: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+.qt-legend-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.qt-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.qt-legend-item .form-dot {
+  vertical-align: middle;
+}
+
+.qt-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.qt-btn-random {
+  padding: 12px 20px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.qt-btn-random:hover {
+  background: var(--surface);
+  border-color: var(--text-muted);
+}
+.qt-btn-save {
+  padding: 12px 28px;
+  border-radius: 10px;
+  background: var(--primary);
+  border: none;
+  color: #000;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.qt-btn-save:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16,185,129,.3);
+}
+
+/* === Desktop Anpassungen === */
+@media (min-width: 768px) {
+  .qt-page {
+    padding: 24px;
+  }
+  .qt-header-text h1 {
+    font-size: 26px;
+  }
+  .qt-team-name {
+    font-size: 17px;
+  }
+  .qt-team-logo-wrap {
+    width: 48px;
+    height: 48px;
+  }
+  .qt-input-num {
+    width: 50px;
+    height: 54px;
+    font-size: 24px;
+  }
+  .qt-colon {
+    font-size: 28px;
+  }
+  .qt-steppers {
+    display: none; /* Auf Desktop nicht nötig */
+  }
+  .qt-score-block {
+    width: 140px;
+  }
+  .qt-joker-hint {
+    display: none;
+  }
+}

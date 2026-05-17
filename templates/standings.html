@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Bundesliga-Tabelle{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>⚽ Bundesliga</h1>
+    <p class="muted small">
+      {% if source == 'football-data.org (live)' %}
+        🟢 Live von <strong>football-data.org</strong>
+        <span class="muted small">· auto-refresh alle 60s</span>
+      {% else %}
+        📊 Lokal berechnet aus eingetragenen Ergebnissen
+        {% if error_msg %}<span class="err">({{ error_msg }})</span>{% endif %}
+      {% endif %}
+    </p>
+  </div>
+  <div class="header-actions">
+    <button id="refreshBtn" class="btn-ghost btn-sm">🔄 Aktualisieren</button>
+  </div>
+</div>
+
+<div class="card flat">
+  <div class="scroll-x">
+    <table class="table bl-table" id="standingsTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Verein</th>
+          <th class="center">Sp</th>
+          <th class="center hidden-mobile">S</th>
+          <th class="center hidden-mobile">U</th>
+          <th class="center hidden-mobile">N</th>
+          <th class="center">Tore</th>
+          <th class="center">±</th>
+          <th class="center hidden-mobile">Form</th>
+          <th class="right">Pkt</th>
+        </tr>
+      </thead>
+      <tbody id="standingsBody">
+      {% for r in standings %}
+        <tr class="{{ 'cl' if r.rank <= 4 }} {{ 'el' if r.rank == 5 or r.rank == 6 }} {{ 'rel' if r.rank >= 16 }}">
+          <td class="rank-cell"><span class="rank-num">{{ r.rank }}</span></td>
+          <td>
+            <div class="user-cell">
+              <img src="{{ r.team.logo }}" class="mini-logo" alt="" />
+              <strong class="hidden-mobile">{{ r.team.name }}</strong>
+              <strong class="hidden-desktop">{{ r.team.short_name }}</strong>
+            </div>
+          </td>
+          <td class="center">{{ r.played }}</td>
+          <td class="center hidden-mobile">{{ r.won }}</td>
+          <td class="center hidden-mobile">{{ r.drawn }}</td>
+          <td class="center hidden-mobile">{{ r.lost }}</td>
+          <td class="center">{{ r.goals_for }}:{{ r.goals_against }}</td>
+          <td class="center">{{ '+' if r.goal_diff > 0 }}{{ r.goal_diff }}</td>
+          <td class="center hidden-mobile">
+            {% if r.form %}
+              <span class="form-stripe small">
+              {% for letter in r.form.split(',') %}
+                {% set l = letter|trim %}
+                {% if l in ['W','D','L'] %}
+                  <span class="form-dot form-{{ l }}">{{ l }}</span>
+                {% endif %}
+              {% endfor %}
+              </span>
+            {% endif %}
+          </td>
+          <td class="right pts-num">{{ r.points }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="legend">
+  <span><span class="legend-box cl"></span> Champions League</span>
+  <span><span class="legend-box el"></span> Europa League</span>
+  <span><span class="legend-box rel"></span> Abstieg</span>
+  {% if source == 'football-data.org (live)' %}
+  <span style="margin-left:auto"><span class="live-dot"></span> Live-Daten · letzter Refresh: <span id="lastRefresh">jetzt</span></span>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{% if source == 'football-data.org (live)' %}
+<script>
+(function() {
+  const POLL_INTERVAL = 60_000; // 60s
+  const tbody = document.getElementById('standingsBody');
+  const refreshLabel = document.getElementById('lastRefresh');
+  const btn = document.getElementById('refreshBtn');
+
+  function relTime(d) {
+    const s = Math.floor((Date.now() - d) / 1000);
+    if (s < 60) return s + 's';
+    if (s < 3600) return Math.floor(s/60) + 'min';
+    return Math.floor(s/3600) + 'h';
+  }
+
+  let lastFetchAt = Date.now();
+  setInterval(() => {
+    if (refreshLabel) refreshLabel.textContent = 'vor ' + relTime(lastFetchAt);
+  }, 1000);
+
+  function rowHtml(r) {
+    const cls = r.rank <= 4 ? 'cl' : (r.rank <= 6 ? 'el' : (r.rank >= 16 ? 'rel' : ''));
+    const form = (r.form || '').split(',').map(l => l.trim())
+      .filter(l => ['W','D','L'].includes(l))
+      .map(l => `<span class="form-dot form-${l}">${l}</span>`).join('');
+    return `<tr class="${cls}">
+      <td class="rank-cell"><span class="rank-num">${r.rank}</span></td>
+      <td><div class="user-cell">
+        <img src="${r.team_logo}" class="mini-logo" alt="" />
+        <strong class="hidden-mobile">${r.team_name}</strong>
+        <strong class="hidden-desktop">${r.team_short}</strong>
+      </div></td>
+      <td class="center">${r.played}</td>
+      <td class="center hidden-mobile">${r.won}</td>
+      <td class="center hidden-mobile">${r.drawn}</td>
+      <td class="center hidden-mobile">${r.lost}</td>
+      <td class="center">${r.goals_for}:${r.goals_against}</td>
+      <td class="center">${r.goal_diff > 0 ? '+' : ''}${r.goal_diff}</td>
+      <td class="center hidden-mobile">${form ? `<span class="form-stripe small">${form}</span>` : ''}</td>
+      <td class="right pts-num">${r.points}</td>
+    </tr>`;
+  }
+
+  async function refresh() {
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Lade...'; }
+    try {
+      const r = await fetch('/api/live/standings', { credentials: 'same-origin' });
+      const data = await r.json();
+      if (data.ok && Array.isArray(data.table)) {
+        tbody.innerHTML = data.table.map(rowHtml).join('');
+        lastFetchAt = Date.now();
+      }
+    } catch(e) {
+      console.error('Live-Refresh fehlgeschlagen:', e);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔄 Aktualisieren'; }
+    }
+  }
+
+  if (btn) btn.addEventListener('click', refresh);
+  setInterval(refresh, POLL_INTERVAL);
+})();
+</script>
+{% endif %}
+{% endblock %}

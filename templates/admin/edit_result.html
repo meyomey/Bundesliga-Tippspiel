@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="{{ url_for('admin.matches', matchday=match.matchday) }}" class="back-link">← Spiele</a>
+
+<div class="card auth-card center-form">
+  <h2>{{ match.home_team.name }} vs. {{ match.away_team.name }}</h2>
+  <p class="muted">{{ match.kickoff|dt }} · Spieltag {{ match.matchday }}</p>
+
+  <form method="post" class="result-form">
+    {{ form.hidden_tag() }}
+    <div class="result-inputs">
+      <div>
+        <img src="{{ match.home_team.logo }}" alt="" />
+        {{ form.home_score(class_='score-input', min=0, max=20) }}
+      </div>
+      <div class="vs">:</div>
+      <div>
+        {{ form.away_score(class_='score-input', min=0, max=20) }}
+        <img src="{{ match.away_team.logo }}" alt="" />
+      </div>
+    </div>
+    {{ form.submit(class_='btn-primary btn-block') }}
+  </form>
+</div>
+{% endblock %}

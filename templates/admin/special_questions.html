@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Sonderfragen verwalten{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.dashboard') }}" class="back-link">← Admin</a>
+
+<h1>⭐ Sonderfragen</h1>
+<p class="muted small">Frei konfigurierbare Spezialfragen rund um die Saison.</p>
+
+<div class="grid-12">
+  <section class="card span-5">
+    <h2>➕ Neue Frage anlegen</h2>
+    <form method="post" novalidate id="sqForm">
+      {{ form.hidden_tag() }}
+
+      <label>
+        {{ form.text.label }}
+        {{ form.text(class_='input', placeholder='z.B. Wer wird Deutscher Meister?') }}
+        {% for e in form.text.errors %}<span class="err">{{ e }}</span>{% endfor %}
+      </label>
+
+      <label>
+        {{ form.description.label }}
+        {{ form.description(class_='input', placeholder='Optionale Erläuterung') }}
+      </label>
+
+      <label>
+        {{ form.answer_type.label }}
+        {{ form.answer_type(class_='input', id='answerTypeSelect') }}
+        <small class="muted">Wählt den Eingabe-Typ für die Teilnehmer.</small>
+      </label>
+
+      <!-- Conditional Felder per JS gesteuert -->
+      <div class="cond-field" data-show-for="choice">
+        <label>
+          {{ form.options.label }}
+          {{ form.options(class_='input', rows=5, placeholder='Option 1\nOption 2\nOption 3') }}
+          <small class="muted">Eine Option pro Zeile.</small>
+        </label>
+      </div>
+
+      <div class="cond-field" data-show-for="multi_team">
+        <label>
+          {{ form.multi_count.label }}
+          {{ form.multi_count(class_='input', min=1, max=18, value=3, inputmode='numeric') }}
+          <small class="muted">Wie viele Mannschaften soll der Teilnehmer wählen? (z.B. 3 Absteiger)</small>
+        </label>
+      </div>
+
+      <div class="cond-field" data-show-for="number">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label>
+            {{ form.number_min.label }}
+            {{ form.number_min(class_='input', placeholder='z.B. 0', inputmode='numeric') }}
+          </label>
+          <label>
+            {{ form.number_max.label }}
+            {{ form.number_max(class_='input', placeholder='z.B. 100', inputmode='numeric') }}
+          </label>
+        </div>
+      </div>
+
+      <label>
+        {{ form.deadline.label }}
+        {{ form.deadline(class_='input', min=min_dt, type='datetime-local') }}
+        <small class="muted">📅 Datum &amp; Uhrzeit auswählen</small>
+        {% for e in form.deadline.errors %}<span class="err">{{ e }}</span>{% endfor %}
+      </label>
+
+      <label>
+        {{ form.points_value.label }}
+        {{ form.points_value(class_='input', value=10, min=1, max=100, inputmode='numeric') }}
+        {% for e in form.points_value.errors %}<span class="err">{{ e }}</span>{% endfor %}
+      </label>
+
+      <div class="cond-field" data-hide-for="multi_team">
+        <label>
+          {{ form.correct_answer.label }}
+          {{ form.correct_answer(class_='input', placeholder='— optional, später eintragbar —') }}
+          <small class="muted">Bei Mehrfach-Mannschaften später per Auflösungs-Button eintragen.</small>
+        </label>
+      </div>
+
+      {{ form.submit(class_='btn-primary btn-block btn-lg') }}
+    </form>
+  </section>
+
+  <section class="card span-7">
+    <h2>📋 Bestehende Fragen ({{ questions|length }})</h2>
+    {% if not questions %}
+      <p class="muted center pad">Noch keine Sonderfragen.</p>
+    {% endif %}
+
+    {% for q in questions %}
+      {% set is_past = q.deadline < now() %}
+      <div class="sq-item">
+        <div class="sq-head">
+          <strong>{{ q.text }}</strong>
+          <span class="pts-pill {{ 'good' if q.correct_answer }}">{{ q.points_value }} Pkt</span>
+        </div>
+        {% if q.description %}<p class="muted small">{{ q.description }}</p>{% endif %}
+
+        <div class="sq-meta">
+          <span class="type-badge">
+            {% if q.answer_type == 'text' %}📝 Freitext
+            {% elif q.answer_type == 'choice' %}📋 Multiple-Choice
+            {% elif q.answer_type == 'team' %}⚽ Mannschaft
+            {% elif q.answer_type == 'multi_team' %}⚽⚽ Mehrere Mannschaften ({{ q.multi_count }})
+            {% elif q.answer_type == 'yes_no' %}✓✗ Ja/Nein
+            {% elif q.answer_type == 'number' %}🔢 Zahl{% if q.number_min is not none %} ({{ q.number_min }}–{{ q.number_max }}){% endif %}
+            {% else %}{{ q.answer_type }}{% endif %}
+          </span>
+          <small class="muted">
+            📅 {{ q.deadline|dt }} Uhr
+            {% if is_past %}<span class="status status-finished">abgelaufen</span>
+            {% else %}<span class="status status-scheduled">offen</span>{% endif %}
+          </small>
+        </div>
+
+        <!-- Auflösungs-Form je nach Typ -->
+        <form method="post" action="{{ url_for('admin.set_special_answer', qid=q.id) }}" class="answer-form">
+          {% if q.answer_type == 'multi_team' %}
+            {% set current_correct = [] %}
+            {% if q.correct_answer %}
+              {% set current_correct = q.correct_answer|fromjson %}
+            {% endif %}
+            <details class="multi-team-details" {% if is_past %}open{% endif %}>
+              <summary>{{ q.multi_count }} Mannschaft(en) als korrekt markieren {% if current_correct %}<span class="muted small">({{ current_correct|length }} gesetzt)</span>{% endif %}</summary>
+              <div class="team-checkbox-grid">
+              {% for t in all_teams %}
+                <label class="team-pick {{ 'selected' if t.name in current_correct }}" title="{{ t.name }}">
+                  <input type="checkbox" name="correct_answer" value="{{ t.name }}" {{ 'checked' if t.name in current_correct }} />
+                  <img src="{{ t.logo }}" alt="" />
+                  <span>{{ t.name }}</span>
+                </label>
+              {% endfor %}
+              </div>
+            </details>
+            <button type="submit" class="btn-primary btn-sm">{{ '✏️ Aktualisieren' if current_correct else '✓ Auflösung speichern' }}</button>
+
+          {% elif q.answer_type == 'team' %}
+            <select name="correct_answer" class="input">
+              <option value="">— Mannschaft auswählen —</option>
+              {% for t in all_teams %}
+                <option value="{{ t.name }}" {{ 'selected' if q.correct_answer == t.name }}>{{ t.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-primary btn-sm">{{ '✏️ Update' if q.correct_answer else '✓ Auswerten' }}</button>
+
+          {% elif q.answer_type == 'yes_no' %}
+            <select name="correct_answer" class="input">
+              <option value="">— wählen —</option>
+              <option value="Ja" {{ 'selected' if q.correct_answer == 'Ja' }}>Ja</option>
+              <option value="Nein" {{ 'selected' if q.correct_answer == 'Nein' }}>Nein</option>
+            </select>
+            <button type="submit" class="btn-primary btn-sm">{{ '✏️ Update' if q.correct_answer else '✓ Auswerten' }}</button>
+
+          {% elif q.answer_type == 'choice' %}
+            <select name="correct_answer" class="input">
+              <option value="">— Option auswählen —</option>
+              {% set opts = q.options|fromjson if q.options else [] %}
+              {% for o in opts %}
+                <option value="{{ o }}" {{ 'selected' if q.correct_answer == o }}>{{ o }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-primary btn-sm">{{ '✏️ Update' if q.correct_answer else '✓ Auswerten' }}</button>
+
+          {% elif q.answer_type == 'number' %}
+            <input type="number" name="correct_answer" class="input"
+                   value="{{ q.correct_answer or '' }}"
+                   {% if q.number_min is not none %}min="{{ q.number_min }}"{% endif %}
+                   {% if q.number_max is not none %}max="{{ q.number_max }}"{% endif %}
+                   inputmode="numeric" />
+            <button type="submit" class="btn-primary btn-sm">{{ '✏️ Update' if q.correct_answer else '✓ Auswerten' }}</button>
+
+          {% else %}{# text #}
+            <input type="text" name="correct_answer" class="input"
+                   placeholder="Korrekte Antwort..."
+                   value="{{ q.correct_answer or '' }}" />
+            <button type="submit" class="btn-primary btn-sm">{{ '✏️ Update' if q.correct_answer else '✓ Auswerten' }}</button>
+          {% endif %}
+        </form>
+
+        <form method="post" action="{{ url_for('admin.delete_special_question', qid=q.id) }}"
+              onsubmit="return confirm('Wirklich löschen? Alle abgegebenen Tipps gehen verloren.')"
+              style="margin-top:8px">
+          <button class="btn-danger btn-xs">🗑 Frage löschen</button>
+        </form>
+      </div>
+    {% endfor %}
+  </section>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Conditional Felder im Formular umschalten
+(function() {
+  const sel = document.getElementById('answerTypeSelect');
+  if (!sel) return;
+  function update() {
+    const type = sel.value;
+    document.querySelectorAll('.cond-field').forEach(el => {
+      const showFor = el.dataset.showFor;
+      const hideFor = el.dataset.hideFor;
+      let visible = true;
+      if (showFor) visible = (showFor === type);
+      if (hideFor) visible = (hideFor !== type);
+      el.style.display = visible ? '' : 'none';
+    });
+  }
+  sel.addEventListener('change', update);
+  update();
+})();
+
+// Team-Pick Checkbox visuelles Feedback
+document.querySelectorAll('.team-pick input[type=checkbox]').forEach(cb => {
+  cb.addEventListener('change', () => {
+    cb.closest('.team-pick').classList.toggle('selected', cb.checked);
+  });
+});
+</script>
+{% endblock %}

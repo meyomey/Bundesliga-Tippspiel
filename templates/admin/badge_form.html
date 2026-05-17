@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Badge bearbeiten' if badge else 'Neues Badge' }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.badges') }}" class="back-link">← Badges</a>
+
+<h1>{{ '✏️ Badge bearbeiten' if badge else '➕ Neues Badge' }}</h1>
+
+<div class="grid-12">
+  <section class="card span-7">
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+
+      <label>
+        {{ form.name.label }}
+        {{ form.name(class_='input', placeholder='z.B. Tagessieger') }}
+        {% for e in form.name.errors %}<span class="err">{{ e }}</span>{% endfor %}
+      </label>
+
+      <label>
+        {{ form.description.label }}
+        {{ form.description(class_='input', placeholder='Wofür wird dieses Badge verliehen?') }}
+        {% for e in form.description.errors %}<span class="err">{{ e }}</span>{% endfor %}
+      </label>
+
+      <div class="grid-3" style="grid-template-columns: 1fr 2fr 1fr;">
+        <label>
+          {{ form.icon.label }}
+          {{ form.icon(class_='input icon-input', placeholder='🏅', maxlength=4) }}
+        </label>
+        <label>
+          {{ form.code.label }}
+          {{ form.code(class_='input', placeholder='z.B. saison_mvp') }}
+          <small class="muted">Intern, eindeutig, am besten lower_case</small>
+        </label>
+        <label>
+          {{ form.color.label }}
+          {{ form.color(class_='input', type='color') }}
+        </label>
+      </div>
+
+      <label>
+        {{ form.trigger_type.label }}
+        {{ form.trigger_type(class_='input', id='triggerSel') }}
+      </label>
+
+      <label class="cond-threshold" data-show-when="tips_count,total_points,exact_count">
+        {{ form.threshold.label }}
+        {{ form.threshold(class_='input', placeholder='z.B. 30', inputmode='numeric') }}
+        <small class="muted">Ab welchem Wert wird das Badge automatisch vergeben?</small>
+      </label>
+
+      <label class="check">
+        {{ form.active() }}
+        <span style="margin-left:6px">{{ form.active.label.text }}</span>
+      </label>
+
+      <div style="display:flex; gap:8px; margin-top:18px;">
+        {{ form.submit(class_='btn-primary btn-block') }}
+        <a href="{{ url_for('admin.badges') }}" class="btn-ghost">Abbrechen</a>
+      </div>
+    </form>
+  </section>
+
+  <aside class="card span-5">
+    <h3>Vorschau</h3>
+    <div class="badge-preview" id="badgePreview">
+      <div class="badge-preview-icon" id="previewIcon">🏅</div>
+      <div>
+        <strong id="previewName">Mein Badge</strong>
+        <p class="muted small" id="previewDesc">Beschreibung...</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:24px">Hilfe zu den Triggern</h3>
+    <ul class="trigger-help">
+      <li><strong>✋ Manuell</strong>: Du vergibst per Hand an einzelne User</li>
+      <li><strong>🎯 1. Tipp</strong>: Sobald der User irgendeinen Tipp abgibt</li>
+      <li><strong>📊 X Tipps</strong>: User hat ≥ Schwelle Tipps abgegeben</li>
+      <li><strong>💯 X Punkte</strong>: User hat ≥ Schwelle Punkte gesammelt</li>
+      <li><strong>🎯 X exakt</strong>: ≥ X exakte Tipps gelandet</li>
+      <li><strong>⚡ Joker exakt</strong>: 1× Joker eingelöst und exakt getippt</li>
+      <li><strong>👑 Perfekter ST</strong>: Alle 9 Spiele eines Spieltags exakt</li>
+    </ul>
+  </aside>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Conditional Threshold-Feld
+(function() {
+  const sel = document.getElementById('triggerSel');
+  if (!sel) return;
+  function update() {
+    const t = sel.value;
+    document.querySelectorAll('.cond-threshold').forEach(el => {
+      const showFor = (el.dataset.showWhen || '').split(',');
+      el.style.display = showFor.includes(t) ? '' : 'none';
+    });
+  }
+  sel.addEventListener('change', update);
+  update();
+})();
+
+// Live-Vorschau
+(function() {
+  const iconInput = document.querySelector('.icon-input');
+  const nameInput = document.querySelector('input[name="name"]');
+  const descInput = document.querySelector('input[name="description"]');
+  const colorInput = document.querySelector('input[name="color"]');
+  const previewIcon = document.getElementById('previewIcon');
+  const previewName = document.getElementById('previewName');
+  const previewDesc = document.getElementById('previewDesc');
+  const preview = document.getElementById('badgePreview');
+
+  function update() {
+    if (iconInput && previewIcon) previewIcon.textContent = iconInput.value || '🏅';
+    if (nameInput && previewName) previewName.textContent = nameInput.value || 'Mein Badge';
+    if (descInput && previewDesc) previewDesc.textContent = descInput.value || 'Beschreibung...';
+    if (colorInput && previewIcon) {
+      const c = colorInput.value || '#fbbf24';
+      previewIcon.style.background = c + '22';
+      previewIcon.style.color = c;
+    }
+  }
+  [iconInput, nameInput, descInput, colorInput].forEach(el => {
+    if (el) el.addEventListener('input', update);
+  });
+  update();
+})();
+</script>
+{% endblock %}

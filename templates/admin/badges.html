@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Badge-Verwaltung{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.dashboard') }}" class="back-link">← Admin</a>
+
+<div class="page-header">
+  <div>
+    <h1>🏅 Badge-Verwaltung</h1>
+    <p class="muted small">Erstelle eigene Auszeichnungen oder vergib sie manuell an einzelne Spieler.</p>
+  </div>
+  <div class="header-actions">
+    <form method="post" action="{{ url_for('admin.badge_recheck') }}" style="display:inline">
+      <button type="submit" class="btn-ghost btn-sm" title="Alle Auto-Badges neu prüfen">🔄 Auto-Check</button>
+    </form>
+    <a href="{{ url_for('admin.badge_form') }}" class="btn-primary btn-sm">➕ Neues Badge</a>
+  </div>
+</div>
+
+{% if not badges %}
+  <div class="card center pad">
+    <p class="muted">Noch keine Badges angelegt.</p>
+    <a href="{{ url_for('admin.badge_form') }}" class="btn-primary" style="margin-top:14px">Erstes Badge anlegen</a>
+  </div>
+{% else %}
+
+<div class="badge-grid">
+  {% for b in badges %}
+  <div class="badge-admin-card {{ 'inactive' if not b.active }}">
+    <div class="bac-icon" style="background: {{ b.color }}22; color: {{ b.color }};">{{ b.icon }}</div>
+    <div class="bac-body">
+      <div class="bac-head">
+        <strong>{{ b.name }}</strong>
+        {% if not b.active %}<span class="pts-pill" style="margin-left:6px">inaktiv</span>{% endif %}
+      </div>
+      <p class="muted small">{{ b.description }}</p>
+      <div class="bac-meta">
+        <span class="trigger-badge trigger-{{ b.trigger_type }}">
+          {% if b.trigger_type == 'manual' %}✋ Manuell
+          {% elif b.trigger_type == 'first_tip' %}🎯 1. Tipp
+          {% elif b.trigger_type == 'tips_count' %}📊 {{ b.threshold }} Tipps
+          {% elif b.trigger_type == 'total_points' %}💯 {{ b.threshold }} Punkte
+          {% elif b.trigger_type == 'exact_count' %}🎯 {{ b.threshold }} exakt
+          {% elif b.trigger_type == 'joker_exact' %}⚡ Joker exakt
+          {% elif b.trigger_type == 'perfect_day' %}👑 Perfekter ST
+          {% else %}{{ b.trigger_type }}{% endif %}
+        </span>
+        <span class="bac-count">{{ award_counts.get(b.id, 0) }} Vergaben</span>
+      </div>
+    </div>
+    <div class="bac-actions">
+      <a href="{{ url_for('admin.badge_award', badge_id=b.id) }}" class="btn-primary btn-xs">👥 Vergeben</a>
+      <a href="{{ url_for('admin.badge_form', badge_id=b.id) }}" class="btn-ghost btn-xs">✏️ Bearbeiten</a>
+      <form method="post" action="{{ url_for('admin.badge_delete', badge_id=b.id) }}"
+            onsubmit="return confirm('Badge {{ b.name }} wirklich löschen? Alle Vergaben gehen verloren.')"
+            style="display:inline">
+        <button type="submit" class="btn-danger btn-xs">🗑</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% endif %}
+
+{% endblock %}

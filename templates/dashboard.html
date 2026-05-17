@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+{% if live_count > 0 or today_matches_count > 0 %}
+<a href="{{ url_for('main.live_center') }}" class="live-banner {{ 'is-live' if live_count > 0 }}">
+  <span class="live-banner-icon">
+    {% if live_count > 0 %}<span class="live-dot"></span>{% else %}📺{% endif %}
+  </span>
+  <div class="live-banner-text">
+    {% if live_count > 0 %}
+      <strong>{{ live_count }} Spiel{{ '' if live_count == 1 else 'e' }} jetzt LIVE!</strong>
+      <small>Tabellenänderungen in Echtzeit verfolgen →</small>
+    {% else %}
+      <strong>{{ today_matches_count }} Begegnung{{ '' if today_matches_count == 1 else 'en' }} heute</strong>
+      <small>Live-Center öffnen für Echtzeit-Tracking →</small>
+    {% endif %}
+  </div>
+  <span class="live-banner-arrow">→</span>
+</a>
+{% endif %}
+
+<div class="dashboard-header">
+  <div>
+    <span class="overline">SPIELTAG {{ current_matchday }}</span>
+    <h1>Hallo, <span class="accent">{{ current_user.username }}</span> 👋</h1>
+  </div>
+  <div class="stats-line">
+    <div class="stat-block">
+      <div class="num">{{ user_points }}</div>
+      <div class="label">Punkte</div>
+    </div>
+    <div class="stat-block">
+      <div class="num">#{{ user_rank or '—' }}</div>
+      <div class="label">Rang</div>
+    </div>
+    <div class="stat-block">
+      <div class="num">{{ badges|length }}</div>
+      <div class="label">Badges</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-12">
+  <section class="card span-7">
+    <header class="card-header">
+      <h2>📅 Nächste Spiele</h2>
+      <a href="{{ url_for('main.schedule') }}" class="btn-ghost btn-sm">Alle Spiele &amp; Tipps →</a>
+    </header>
+
+    {% if upcoming %}
+      <div class="match-list">
+      {% for m in upcoming %}
+        {% set p = get_user_prediction(m.id) %}
+        <a href="{{ url_for('main.match_detail', match_id=m.id) }}" class="match-row">
+            <!-- 🌍 UTC-Zeit für globale Konvertierung -->
+            <div class="match-date" data-utc="{{ m.kickoff.strftime('%Y-%m-%dT%H:%M:%SZ') }}">
+              <strong class="dash-date-val">--.--</strong>
+              <span class="dash-time-val">--:--</span>
+            </div>
+          <div class="match-teams">
+            <div class="team-cell right">
+              <span title="{{ m.home_team.name }}">
+                <span class="hidden-mobile">{{ m.home_team.name }}</span>
+                <span class="hidden-desktop">{{ m.home_team.short_name }}</span>
+              </span>
+              <img src="{{ m.home_team.logo }}" alt="" class="team-logo" onerror="this.style.opacity='.3'" />
+            </div>
+            <div class="match-vs">
+              {% if p %}
+                <strong>{{ p.home_tip }} : {{ p.away_tip }}</strong>
+                {% if p.joker %}<span class="joker">⚡</span>{% endif %}
+              {% else %}
+                <span class="muted">— : —</span>
+              {% endif %}
+            </div>
+            <div class="team-cell">
+              <img src="{{ m.away_team.logo }}" alt="" class="team-logo" onerror="this.style.opacity='.3'" />
+              <span title="{{ m.away_team.name }}">
+                <span class="hidden-mobile">{{ m.away_team.name }}</span>
+                <span class="hidden-desktop">{{ m.away_team.short_name }}</span>
+              </span>
+            </div>
+          </div>
+          <div class="match-action">
+            {% if p %}<span class="chip-success">Getippt</span>{% else %}<span class="chip">Tippen</span>{% endif %}
+          </div>
+        </a>
+      {% endfor %}
+      </div>
+    {% else %}
+      <p class="muted center pad">Keine kommenden Spiele.</p>
+    {% endif %}
+  </section>
+
+  <aside class="card span-5">
+    <header class="card-header">
+      <h2>🏆 Top 5</h2>
+      <a href="{{ url_for('main.leaderboard') }}" class="btn-ghost btn-sm">Rangliste →</a>
+    </header>
+    <ol class="leaderboard mini">
+      {% for r in leaderboard %}
+        <li class="{{ 'me' if r.user.id == current_user.id }}">
+          <span class="rank">#{{ r.rank }}</span>
+          <span class="user has-tooltip" tabindex="0">
+            {{ r.user.username }}
+            {% if r.user.favorite_team %}
+              <img src="{{ r.user.favorite_team.logo }}" alt="" class="lb-fav-mini" />
+            {% endif %}
+            <span class="player-tooltip" role="tooltip">
+              <span class="pt-head">
+                {% if r.user.avatar and r.user.avatar != 'default.png' %}
+                  <img src="{{ url_for('static', filename='uploads/' + r.user.avatar) }}" alt="" class="pt-avatar" />
+                {% else %}
+                  <span class="pt-avatar avatar-fallback">{{ r.user.username[0]|upper }}</span>
+                {% endif %}
+              <span class="pt-names">
+                <strong>{{ r.user.username }}</strong>
+                {% set is_public = r.user.show_full_name in (true, none, 1) %}
+                {% if r.user.full_name and (is_public or current_user.is_admin or r.user.id == current_user.id) %}
+                  <small>{{ r.user.full_name }}{% if not is_public and current_user.is_admin %} <span class="pt-private-tag" title="Privat">🔒</span>{% endif %}</small>
+                {% endif %}
+              </span>
+              </span>
+              {% if r.user.favorite_team %}
+                <span class="pt-team">
+                  <img src="{{ r.user.favorite_team.logo }}" alt="" />
+                  <span>
+                    <small>Lieblingsverein</small>
+                    <strong>{{ r.user.favorite_team.name }}</strong>
+                  </span>
+                </span>
+              {% else %}
+                <span class="pt-team empty"><span>—</span><small>kein Lieblingsverein</small></span>
+              {% endif %}
+            </span>
+          </span>
+          <strong class="pts">{{ r.points }}</strong>
+        </li>
+      {% endfor %}
+    </ol>
+
+    {% if badges %}
+    <div class="badge-row">
+      <h3>Deine Badges</h3>
+      <div class="badge-list">
+      {% for ub in badges %}
+        <div class="badge-chip" title="{{ ub.badge.description }}">
+          <span class="b-icon">{{ ub.badge.icon }}</span>
+          <span>{{ ub.badge.name }}</span>
+        </div>
+      {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </aside>
+</div>
+
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="{{ url_for('admin.dashboard') }}" class="back-link">← Admin</a>
+<h1>🏁 Neue Saison starten</h1>
+
+<style>
+  .season-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .season-check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; }
+  .season-check input { width: 18px; height: 18px; }
+  .danger-zone { border-color: #ef4444; }
+</style>
+
+<div class="card danger-zone" style="margin-bottom:20px">
+  <p style="color:#ef4444; font-weight:bold">⚠️ Achtung: Diese Aktionen können nicht rückgängig gemacht werden!</p>
+  <p class="muted">Backup der Datenbank empfohlen vor dem Start.</p>
+</div>
+
+<form method="post" class="card" onsubmit="return confirm('Neue Saison wirklich starten? Alle markierten Daten werden zurückgesetzt.')">
+  <div class="season-card">
+    <h3>📦 Archivieren</h3>
+    <label class="season-check">
+      <input type="checkbox" name="do_archive" value="1" checked>
+      <span>Aktuelle Saison in <strong>Ewige Tabelle</strong> archivieren</span>
+    </label>
+    <input type="text" name="new_season_label" value="2025/26" class="input" style="width:200px">
+  </div>
+
+  <div class="season-card danger-zone">
+    <h3>🗑️ Zurücksetzen</h3>
+    <label class="season-check">
+      <input type="checkbox" name="do_delete_schedule" value="1" checked>
+      <span>Spielplan, Tipps, Kommentare & Spieltagsieger löschen</span>
+    </label>
+    <label class="season-check">
+      <input type="checkbox" name="do_delete_specials" value="1" checked>
+      <span>Sonderfragen & Sondertipps löschen</span>
+    </label>
+    <label class="season-check">
+      <input type="checkbox" name="do_reset_bots" value="1" checked>
+      <span>Bot-Tipps zurücksetzen</span>
+    </label>
+    <label class="season-check">
+      <input type="checkbox" name="do_reset_badges" value="1">
+      <span>Spieler-Badges zurücksetzen</span>
+    </label>
+    <label class="season-check">
+      <input type="checkbox" name="do_reset_paid" value="1">
+      <span>Bezahlstatus zurücksetzen (neue Pott-Runde)</span>
+    </label>
+  </div>
+
+  <button type="submit" class="btn-primary" style="background:#ef4444; border-color:#ef4444">🏁 Saison jetzt starten</button>
+</form>
+{% endblock %}

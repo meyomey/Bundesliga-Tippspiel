@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Spieler {{ user.username }} bearbeiten{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.users') }}" class="back-link">← Spielerverwaltung</a>
+
+<div class="user-edit-head">
+  <div class="ueh-avatar">
+    {% if user.avatar and user.avatar != 'default.png' %}
+      <img src="{{ url_for('static', filename='uploads/' + user.avatar) }}" alt="" />
+    {% else %}
+      <div class="avatar-fallback" style="width:64px;height:64px;font-size:24px">{{ user.username[0]|upper }}</div>
+    {% endif %}
+  </div>
+  <div>
+    <h1>{{ user.username }}</h1>
+    <p class="muted small">
+      Mitglied seit {{ user.created_at|de('%d.%m.%Y') }} ·
+      {{ user.predictions.count() }} Tipps · {{ user.total_points() }} Punkte
+    </p>
+  </div>
+</div>
+
+<div class="grid-12">
+  <section class="card span-7">
+    <h2>📝 Spieler-Daten</h2>
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+
+      <div class="grid-3" style="grid-template-columns: 1fr 1fr;">
+        <label>{{ form.username.label }} {{ form.username(class_='input') }}</label>
+        <label>{{ form.full_name.label }} {{ form.full_name(class_='input') }}</label>
+      </div>
+
+      <label class="check" style="margin-bottom:12px">
+        {{ form.show_full_name() }}
+        <span style="margin-left:6px">
+          <strong>Vollen Namen öffentlich anzeigen</strong>
+          <small class="muted" style="display:block">Im Tooltip auf der Tabelle für alle sichtbar.</small>
+        </span>
+      </label>
+
+      <div class="grid-3" style="grid-template-columns: 1fr 1fr;">
+        <label>{{ form.email.label }} {{ form.email(class_='input', type='email', inputmode='email') }}</label>
+        <label>{{ form.phone.label }} {{ form.phone(class_='input', type='tel', inputmode='tel', placeholder='+49 170 1234567') }}
+          {% if user.phone %}
+            <small class="muted">
+              <a href="https://wa.me/{{ user.phone | replace('+','') | replace(' ','') | replace('-','') | replace('/','') }}"
+                 target="_blank">📱 Per WhatsApp anschreiben</a>
+            </small>
+          {% endif %}
+        </label>
+      </div>
+
+      <label>{{ form.favorite_team_id.label }} {{ form.favorite_team_id(class_='input') }}</label>
+      <label>{{ form.new_password.label }} {{ form.new_password(class_='input', placeholder='leer lassen, um aktuelles Passwort zu behalten') }}
+        <small class="muted">Mindestens 6 Zeichen. Leer lassen = unverändert.</small>
+      </label>
+
+      <h3 style="margin-top:20px">💰 Bezahl-Status</h3>
+      <label class="check pay-edit-check {{ 'on' if form.has_paid.data }}">
+        {{ form.has_paid() }}
+        <span><strong>Spieler hat den Einsatz bezahlt</strong></span>
+      </label>
+      <label>{{ form.paid_note.label }} {{ form.paid_note(class_='input', placeholder='z.B. "PayPal 12.08.", "Bar bei Treffen", "Überweisung"') }}
+        <small class="muted">Nur intern für dich als Erinnerung.</small>
+      </label>
+
+      <h3 style="margin-top:20px">🛠 Rechte</h3>
+      <label class="check">
+        {{ form.is_admin() }}
+        <span style="margin-left:6px"><strong>Admin-Rechte</strong></span>
+      </label>
+
+      <div style="display:flex; gap:8px; margin-top:18px">
+        {{ form.submit(class_='btn-primary btn-block') }}
+        <a href="{{ url_for('admin.users') }}" class="btn-ghost">Abbrechen</a>
+      </div>
+    </form>
+  </section>
+
+  <aside class="card span-5">
+    <h3>Konto-Info</h3>
+    <dl class="info-list">
+      <dt>Spieler-ID</dt><dd>#{{ user.id }}</dd>
+      <dt>Konto erstellt</dt><dd>{{ user.created_at|de('%d.%m.%Y %H:%M') }}</dd>
+      <dt>E-Mail</dt><dd><a href="mailto:{{ user.email }}">{{ user.email }}</a></dd>
+      {% if user.phone %}
+      {% set wa = user.phone | replace('+','') | replace(' ','') | replace('-','') | replace('/','') %}
+      <dt>Mobilfunk</dt>
+      <dd><a href="tel:{{ user.phone }}">{{ user.phone }}</a> ·
+          <a href="https://wa.me/{{ wa }}" target="_blank">📱 WhatsApp</a></dd>
+      {% endif %}
+      {% if user.has_paid and user.paid_at %}
+      <dt>Bezahlt am</dt><dd>{{ user.paid_at|de('%d.%m.%Y %H:%M') }}</dd>
+      {% endif %}
+      <dt>Letzter Tipp</dt>
+      <dd>
+        {% set last_pred = user.predictions.order_by(none).all() %}
+        {% if last_pred %}
+          {{ last_pred[-1].updated_at|de('%d.%m.%Y %H:%M') if last_pred[-1].updated_at else '—' }}
+        {% else %}—{% endif %}
+      </dd>
+    </dl>
+
+    {% if user.id != current_user.id %}
+    <h3 style="margin-top:20px;color:var(--danger)">⚠️ Gefahrenzone</h3>
+    <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}"
+          onsubmit="return confirm('Wirklich {{ user.username }} löschen? Alle Tipps gehen unwiederbringlich verloren!')">
+      <button type="submit" class="btn-danger btn-block">🗑 Spieler löschen</button>
+    </form>
+    {% endif %}
+  </aside>
+</div>
+
+{% endblock %}

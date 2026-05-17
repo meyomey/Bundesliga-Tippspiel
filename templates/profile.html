@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Profil{% endblock %}
+{% block content %}
+
+<div class="grid-12">
+  <section class="card span-5">
+    <h1>Profil</h1>
+    <div class="profile-avatar-area">
+      {% if current_user.avatar and current_user.avatar != 'default.png' %}
+        <img src="{{ url_for('static', filename='uploads/' + current_user.avatar) }}" alt="Avatar" class="profile-avatar" />
+      {% else %}
+        <div class="profile-avatar-fallback">{{ current_user.username[0]|upper }}</div>
+      {% endif %}
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+      {{ form.hidden_tag() }}
+      <label>{{ form.username.label }} {{ form.username(class_='input', placeholder='So wirst du auf der Tabelle angezeigt') }}</label>
+      <label>{{ form.full_name.label }} {{ form.full_name(class_='input', placeholder='Vorname Nachname') }}
+      </label>
+      <label class="check pay-edit-check {{ 'on' if current_user.show_full_name }}" style="margin-bottom:14px">
+        {{ form.show_full_name() }}
+        <span>
+          <strong>Vollen Namen öffentlich anzeigen</strong>
+          <small class="muted" style="display:block;margin-top:2px">
+            {% if current_user.show_full_name %}
+              ✅ Andere sehen deinen vollen Namen im Tooltip auf der Tabelle.
+            {% else %}
+              🔒 Dein voller Name ist nur für den Admin sichtbar.
+            {% endif %}
+          </small>
+        </span>
+      </label>
+      <label>{{ form.phone.label }} {{ form.phone(class_='input', placeholder='+49 170 1234567', type='tel', inputmode='tel') }}
+        <small class="muted">Für WhatsApp-Gruppe / Erinnerungen. Wird nur dem Admin angezeigt.</small>
+      </label>
+      <label>{{ form.favorite_team_id.label }} {{ form.favorite_team_id(class_='input') }}
+        <small class="muted">Erscheint mit Logo neben deinem Namen.</small>
+      </label>
+      <label>{{ form.avatar.label }} {{ form.avatar(class_='input') }}</label>
+      {{ form.submit(class_='btn-primary btn-block') }}
+    </form>
+  </section>
+
+  <section class="card span-7">
+    <!-- Bezahl-Status -->
+    <div class="pay-card {{ 'paid' if current_user.has_paid }}">
+      <div class="pay-icon">{{ '✅' if current_user.has_paid else '⏳' }}</div>
+      <div class="pay-text">
+        {% if current_user.has_paid %}
+          <strong>Du hast bezahlt!</strong>
+          <small>
+            Einsatz: {{ pot.amount_per }} {{ pot.currency }}
+            {% if current_user.paid_at %}· am {{ current_user.paid_at|de('%d.%m.%Y') }}{% endif %}
+            {% if current_user.paid_note %}· <em>"{{ current_user.paid_note }}"</em>{% endif %}
+          </small>
+        {% else %}
+          <strong>Noch nicht bezahlt</strong>
+          <small>
+            Bitte überweise <strong>{{ pot.amount_per }} {{ pot.currency }}</strong> in den Saison-Pott.
+            Frag den Admin nach den Zahlungsdetails.
+          </small>
+        {% endif %}
+      </div>
+      <a href="{{ url_for('main.prizes') }}" class="btn-ghost btn-sm pay-link">🏆 Gewinne ansehen</a>
+    </div>
+
+    <!-- Lieblingsverein-Anzeige -->
+    {% if current_user.favorite_team %}
+    <div class="favorite-team-card">
+      <img src="{{ current_user.favorite_team.logo }}" alt="" />
+      <div>
+        <small class="muted">Mein Verein</small>
+        <strong>{{ current_user.favorite_team.name }}</strong>
+      </div>
+    </div>
+    {% endif %}
+
+    <h2>📊 Deine Statistik</h2>
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="num">{{ stats.total_points }}</div><div class="label">Punkte</div></div>
+      <div class="stat-tile"><div class="num">{{ stats.total_tips }}</div><div class="label">Tipps</div></div>
+      <div class="stat-tile"><div class="num">{{ stats.exact }}</div><div class="label">Exakt</div></div>
+      <div class="stat-tile"><div class="num">{{ stats.joker_used }}</div><div class="label">Joker</div></div>
+      <div class="stat-tile" style="grid-column: span 2; background: var(--primary-soft); border-color: rgba(20,184,166,.3)">
+        <div class="num">🏆 {{ stats.md_wins }}</div>
+        <div class="label">
+          Spieltagsiege
+          {% if stats.md_wins > 0 %} · <a href="{{ url_for('main.matchday_winners') }}">Chronik →</a>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:24px">Formkurve</h3>
+    <canvas id="formChart" height="120"></canvas>
+
+    {% if insights %}
+    <div class="insights-section">
+      <h3>🎲 Dein Tipp-Stil</h3>
+
+      <div class="insight-card">
+        <div class="insight-icon">🎯</div>
+        <div class="insight-text">
+          <strong>Dein häufigster Tipp: {{ insights.most_common_tip }}</strong>
+          <small>{{ insights.most_common_count }}× abgegeben ({{ insights.most_common_pct }}% deiner Tipps)</small>
+        </div>
+      </div>
+
+      <div class="insight-card">
+        <div class="insight-icon">⚖</div>
+        <div class="insight-text">
+          <strong>Tendenz-Verteilung</strong>
+          <small>So tippst du im Schnitt</small>
+          <div class="tendency-row">
+            <div class="td-segment home" style="width:{{ insights.tendency_pct.home }}%">🏠 {{ insights.tendency_pct.home }}%</div>
+            <div class="td-segment draw" style="width:{{ insights.tendency_pct.draw }}%">⚖ {{ insights.tendency_pct.draw }}%</div>
+            <div class="td-segment away" style="width:{{ insights.tendency_pct.away }}%">✈ {{ insights.tendency_pct.away }}%</div>
+          </div>
+        </div>
+      </div>
+
+      {% if insights.best %}
+      <div class="insight-card">
+        <div class="insight-icon">🏆</div>
+        <div class="insight-text">
+          <strong>Bestes Spiel:
+            {{ insights.best.match.home_team.short_name }} {{ insights.best.match.home_score }}:{{ insights.best.match.away_score }} {{ insights.best.match.away_team.short_name }}
+          </strong>
+          <small>Tipp: {{ insights.best.home_tip }}:{{ insights.best.away_tip }} → +{{ insights.best.points }} Punkte</small>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if insights.worst %}
+      <div class="insight-card">
+        <div class="insight-icon">😅</div>
+        <div class="insight-text">
+          <strong>Schlimmster Patzer:
+            {{ insights.worst.match.home_team.short_name }} {{ insights.worst.match.home_score }}:{{ insights.worst.match.away_score }} {{ insights.worst.match.away_team.short_name }}
+          </strong>
+          <small>Du tipptest {{ insights.worst.home_tip }}:{{ insights.worst.away_tip }} — 0 Punkte</small>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="insight-card">
+        <div class="insight-icon">📊</div>
+        <div class="insight-text">
+          <strong>Ø {{ insights.avg_points_per_match }} Punkte pro Spiel</strong>
+          <small>Aus {{ insights.total_finished }} ausgewerteten Tipps</small>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:14px">
+        <a href="{{ url_for('main.season_recap') }}" class="btn-primary btn-sm">
+          🎬 Komplette Saison-Auswertung →
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if badges %}
+    <h3 style="margin-top:24px">🏅 Badges ({{ badges|length }})</h3>
+    <div class="badge-list big">
+      {% for ub in badges %}
+        <div class="badge-card">
+          <div class="b-icon-big" style="color: {{ ub.badge.color or '#fbbf24' }}">{{ ub.badge.icon }}</div>
+          <div>
+            <strong>{{ ub.badge.name }}</strong>
+            <p>{{ ub.badge.description }}</p>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.addEventListener('load', () => {
+  const data = {{ form_curve|tojson }};
+  if (!data.length) return;
+  const ctx = document.getElementById('formChart');
+  if (!ctx || !window.Chart) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map(d => 'ST ' + d[0]),
+      datasets: [{
+        label: 'Punkte', data: data.map(d => d[1]),
+        borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.15)',
+        fill: true, tension: .4, borderWidth: 3,
+      }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+});
+</script>
+{% endblock %}

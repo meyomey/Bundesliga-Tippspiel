@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Ewige Tabelle{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>🏛 Ewige Tabelle</h1>
+    <p class="muted small">Aggregiert über alle Saisons (inkl. der aktuellen)</p>
+  </div>
+</div>
+
+<!-- Mobile Cards -->
+<div class="card flat">
+  <div class="leaderboard-cards">
+  {% for r in rows %}
+    <div class="lb-card {{ 'me' if r.user.id == current_user.id }} {{ 'top1' if r.rank == 1 }}">
+      <div class="lb-card-head">
+        <div class="lb-card-rank">
+          {% if r.rank == 1 %}🥇
+          {% elif r.rank == 2 %}🥈
+          {% elif r.rank == 3 %}🥉
+          {% else %}<span class="rank-num">#{{ r.rank }}</span>{% endif %}
+        </div>
+        <div class="lb-card-user">
+          {% if r.user.avatar and r.user.avatar != 'default.png' %}
+            <img src="{{ url_for('static', filename='uploads/' + r.user.avatar) }}" alt="" />
+          {% else %}
+            <div class="avatar-fallback small">{{ r.user.username[0]|upper }}</div>
+          {% endif %}
+          <strong>{{ r.user.username }}</strong>
+        </div>
+        <div class="lb-card-points">{{ r.points }}</div>
+      </div>
+
+      <div class="lb-card-stats">
+        <div class="lb-stat-mini">
+          <span class="num">{{ r.seasons }}</span>
+          <span class="lbl">Saisons</span>
+        </div>
+        <div class="lb-stat-mini">
+          <span class="num">{% if r.titles %}{{ '🏆' * r.titles }}{% else %}—{% endif %}</span>
+          <span class="lbl">Titel</span>
+        </div>
+        <div class="lb-stat-mini">
+          <span class="num">#{{ r.best_rank }}</span>
+          <span class="lbl">Beste Pos</span>
+        </div>
+        <div class="lb-stat-mini">
+          <span class="num exact-col">{{ r.exact }}</span>
+          <span class="lbl">Exakt</span>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+  </div>
+
+  <!-- Desktop Table -->
+  <div class="scroll-x">
+    <table class="table leaderboard-table extended">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Spieler</th>
+          <th class="center">Saisons</th>
+          <th class="center">🏆</th>
+          <th class="center">Beste</th>
+          <th class="center exact-col">EX</th>
+          <th class="center diff-col">DIF</th>
+          <th class="center tend-col">TEN</th>
+          <th class="center wrong-col">✗</th>
+          <th class="right">Gesamt</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr class="{{ 'me' if r.user.id == current_user.id }} {{ 'top1' if r.rank == 1 }}">
+          <td class="rank-cell">
+            {% if r.rank == 1 %}🥇
+            {% elif r.rank == 2 %}🥈
+            {% elif r.rank == 3 %}🥉
+            {% else %}<span class="rank-num">#{{ r.rank }}</span>{% endif %}
+          </td>
+          <td>
+            <div class="user-cell">
+              {% if r.user.avatar and r.user.avatar != 'default.png' %}
+                <img src="{{ url_for('static', filename='uploads/' + r.user.avatar) }}" />
+              {% else %}
+                <div class="avatar-fallback small">{{ r.user.username[0]|upper }}</div>
+              {% endif %}
+              <strong>{{ r.user.username }}</strong>
+            </div>
+          </td>
+          <td class="center">{{ r.seasons }}</td>
+          <td class="center">{% if r.titles %}{{ '🏆' * r.titles }}{% else %}—{% endif %}</td>
+          <td class="center">#{{ r.best_rank }}</td>
+          <td class="center exact-col"><strong>{{ r.exact }}</strong></td>
+          <td class="center diff-col">{{ r.diff }}</td>
+          <td class="center tend-col">{{ r.tendency }}</td>
+          <td class="center wrong-col muted">{{ r.wrong }}</td>
+          <td class="right pts-num">{{ r.points }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

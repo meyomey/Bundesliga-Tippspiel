@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}🏆 Gewinne &amp; Pott{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>🏆 Gewinne &amp; Saisonpott</h1>
+    <p class="muted small">Wer am Ende oben steht, gewinnt — schau hier, was es zu holen gibt!</p>
+  </div>
+</div>
+
+<!-- Preis-Karten zuerst -->
+{% if not prizes %}
+  <div class="card center pad">
+    <p class="muted">Noch keine Gewinne konfiguriert.</p>
+  </div>
+{% else %}
+<div class="prize-grid">
+  {% for p in prizes %}
+  <div class="prize-card" style="--prize-color: {{ p.color }};">
+    <div class="prize-rank-badge">
+      {% if p.rank == 0 %}<span class="muted small">SONDERPREIS</span>
+      {% else %}{{ p.rank }}.{% endif %}
+    </div>
+    <div class="prize-icon" style="background: {{ p.color }}22; color: {{ p.color }};">{{ p.icon }}</div>
+    <h2>{{ p.title }}</h2>
+    {% if p.description %}<p class="muted small">{{ p.description }}</p>{% endif %}
+
+    {% if p.amount %}
+    <div class="prize-amount" style="color: {{ p.color }};">{{ p.amount }}</div>
+    {% endif %}
+
+    {% if p.detail %}
+    <p class="prize-detail">{{ p.detail }}</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Aktuelle Top 10 als Vorschau -->
+{% if leaderboard %}
+<section class="card" style="margin-top:24px">
+  <div class="card-header">
+    <h2>📊 Aktuelle Rangliste</h2>
+    <small class="muted">So sähe die Verteilung aktuell aus</small>
+  </div>
+  <ol class="leaderboard mini">
+    {% for r in leaderboard %}
+      <li class="{{ 'me' if r.user.id == current_user.id }}">
+        <span class="rank">
+          {% if r.rank == 1 %}🥇
+          {% elif r.rank == 2 %}🥈
+          {% elif r.rank == 3 %}🥉
+          {% else %}#{{ r.rank }}{% endif %}
+        </span>
+        <span class="user">
+          {{ r.user.username }}
+          {% if r.user.favorite_team %}
+            <img src="{{ r.user.favorite_team.logo }}" class="mini-logo" alt="" title="{{ r.user.favorite_team.name }}" />
+          {% endif %}
+        </span>
+        <strong class="pts">{{ r.points }}</strong>
+      </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+<!-- Pott-Übersicht (jetzt am ENDE der Seite) -->
+<div class="pot-banner" style="margin-top:24px">
+  <div class="pot-main">
+    <div class="pot-amount-box">
+      <span class="pot-amount-num">{{ pot.pot_total }}</span>
+      <span class="pot-currency">{{ pot.currency }}</span>
+    </div>
+    <div class="pot-meta">
+      <strong>Aktueller Pott</strong>
+      <small>
+        {{ pot.paid_count }} von {{ pot.total_count }} Spielern haben gezahlt ·
+        Ziel: {{ pot.pot_target }} {{ pot.currency }}
+      </small>
+      <div class="pot-progress">
+        <div class="pot-progress-bar"
+             style="width: {{ (pot.paid_count / pot.total_count * 100) if pot.total_count else 0 }}%">
+        </div>
+      </div>
+    </div>
+  </div>
+  {% if pot.intro %}
+  <p class="pot-intro">{{ pot.intro }}</p>
+  {% endif %}
+  <p class="muted small">
+    Einsatz pro Spieler: <strong>{{ pot.amount_per }} {{ pot.currency }}</strong>
+  </p>
+</div>
+
+{% endblock %}

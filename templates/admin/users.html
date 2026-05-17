@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Spielerverwaltung{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.dashboard') }}" class="back-link">← Admin</a>
+
+<div class="page-header">
+  <div>
+    <span class="overline">SPIELER &amp; POTT</span>
+    <h1>👥 Spielerverwaltung</h1>
+    <p class="muted small">{{ users|length }} Spieler · {{ pot.paid_count }} bezahlt · Pott: {{ pot.pot_total }} {{ pot.currency }}</p>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('admin.admin_prizes') }}" class="btn-ghost btn-sm">🏆 Preise</a>
+  </div>
+</div>
+
+<!-- Pott-Summary -->
+<div class="pot-summary-card">
+  <div class="psc-stat">
+    <div class="num">{{ pot.pot_total }}</div>
+    <div class="lbl">{{ pot.currency }} im Pott</div>
+  </div>
+  <div class="psc-stat">
+    <div class="num text-ok">{{ pot.paid_count }}</div>
+    <div class="lbl">bezahlt</div>
+  </div>
+  <div class="psc-stat">
+    <div class="num text-warn">{{ pot.missing_count }}</div>
+    <div class="lbl">offen</div>
+  </div>
+  <div class="psc-stat">
+    <div class="num">{{ pot.amount_per }} {{ pot.currency }}</div>
+    <div class="lbl">pro Spieler</div>
+  </div>
+</div>
+
+<!-- ===== MOBILE: Card-Layout ===== -->
+<div class="card flat user-mobile-list">
+  {% for u in users %}
+    <div class="user-card {{ 'paid' if u.has_paid }}">
+      <div class="uc-head">
+        {% if u.avatar and u.avatar != 'default.png' %}
+          <img src="{{ url_for('static', filename='uploads/' + u.avatar) }}" alt="" class="uc-avatar" />
+        {% else %}
+          <div class="uc-avatar avatar-fallback">{{ u.username[0]|upper }}</div>
+        {% endif %}
+        <div class="uc-name">
+          <div class="uc-name-row">
+            <strong>{{ u.username }}</strong>
+            {% if u.is_admin %}<span class="uc-badge admin">👑 Admin</span>{% endif %}
+          </div>
+          {% if u.full_name %}<small class="muted">{{ u.full_name }}</small>{% endif %}
+        </div>
+        <form method="post" action="{{ url_for('admin.toggle_paid', user_id=u.id) }}" class="uc-pay-form">
+          <button type="submit" class="paid-toggle-btn {{ 'paid' if u.has_paid }}"
+                  title="{{ 'Als unbezahlt markieren' if u.has_paid else 'Als bezahlt markieren' }}">
+            {{ '✅' if u.has_paid else '⏳' }}
+          </button>
+        </form>
+      </div>
+
+      <div class="uc-stats">
+        <div class="uc-stat">
+          <strong>{{ u.predictions.count() }}</strong>
+          <small>Tipps</small>
+        </div>
+        <div class="uc-stat">
+          <strong class="pts-num">{{ u.total_points() }}</strong>
+          <small>Punkte</small>
+        </div>
+        {% if u.favorite_team %}
+        <div class="uc-stat">
+          <img src="{{ u.favorite_team.logo }}" alt="" style="width:22px;height:22px;object-fit:contain" />
+          <small title="{{ u.favorite_team.name }}">{{ u.favorite_team.short_name }}</small>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if u.email or u.phone %}
+      <div class="uc-contact">
+        <a href="mailto:{{ u.email }}" class="uc-link">📧 <span>{{ u.email }}</span></a>
+        {% if u.phone %}
+          {% set wa = u.phone | replace('+','') | replace(' ','') | replace('-','') | replace('/','') %}
+          <a href="https://wa.me/{{ wa }}" target="_blank" class="uc-link">📱 <span>{{ u.phone }}</span></a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <div class="uc-actions">
+        <a href="{{ url_for('admin.user_edit', user_id=u.id) }}" class="btn-primary btn-sm">
+          ✏️ Bearbeiten
+        </a>
+        {% if u.id != current_user.id %}
+        <form method="post" action="{{ url_for('admin.delete_user', user_id=u.id) }}"
+              onsubmit="return confirm('Wirklich löschen? Alle Tipps gehen verloren.')">
+          <button type="submit" class="btn-danger btn-sm" title="Löschen">🗑</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<!-- ===== DESKTOP: Tabelle ===== -->
+<div class="card flat user-desktop-table scroll-x">
+  <table class="table users-table">
+    <thead>
+      <tr>
+        <th>Spieler</th>
+        <th>Voller Name</th>
+        <th>Kontakt</th>
+        <th>Verein</th>
+        <th class="center">Tipps</th>
+        <th class="center">Punkte</th>
+        <th class="center">Admin</th>
+        <th class="center">Bezahlt</th>
+        <th>Aktion</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+      <tr class="{{ 'paid-row' if u.has_paid }}">
+        <td>
+          <div class="user-cell">
+            {% if u.avatar and u.avatar != 'default.png' %}
+              <img src="{{ url_for('static', filename='uploads/' + u.avatar) }}" />
+            {% else %}
+              <div class="avatar-fallback small">{{ u.username[0]|upper }}</div>
+            {% endif %}
+            <strong>{{ u.username }}</strong>
+          </div>
+        </td>
+        <td>{{ u.full_name or '—' }}</td>
+        <td>
+          <small><a href="mailto:{{ u.email }}">📧 {{ u.email }}</a></small>
+          {% if u.phone %}
+            {% set wa = u.phone | replace('+','') | replace(' ','') | replace('-','') | replace('/','') %}
+            <br><small><a href="https://wa.me/{{ wa }}" target="_blank">📱 {{ u.phone }}</a></small>
+          {% endif %}
+        </td>
+        <td>
+          {% if u.favorite_team %}
+            <span class="user-cell">
+              <img src="{{ u.favorite_team.logo }}" class="mini-logo" alt="" />
+              <span title="{{ u.favorite_team.name }}">{{ u.favorite_team.short_name }}</span>
+            </span>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td class="center">{{ u.predictions.count() }}</td>
+        <td class="center pts-num">{{ u.total_points() }}</td>
+        <td class="center">{% if u.is_admin %}👑{% else %}—{% endif %}</td>
+        <td class="center">
+          <form method="post" action="{{ url_for('admin.toggle_paid', user_id=u.id) }}" style="display:inline">
+            <button type="submit" class="paid-toggle-btn {{ 'paid' if u.has_paid }}"
+                    title="{{ 'Als unbezahlt markieren' if u.has_paid else 'Als bezahlt markieren' }}">
+              {{ '✅' if u.has_paid else '⏳' }}
+            </button>
+          </form>
+        </td>
+        <td>
+          <a href="{{ url_for('admin.user_edit', user_id=u.id) }}" class="btn-ghost btn-xs">✏️ Bearbeiten</a>
+          {% if u.id != current_user.id %}
+          <form method="post" action="{{ url_for('admin.delete_user', user_id=u.id) }}" style="display:inline"
+                onsubmit="return confirm('Wirklich löschen? Alle Tipps gehen verloren.')">
+            <button class="btn-danger btn-xs">🗑</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="{{ url_for('admin.dashboard') }}" class="back-link">← Admin</a>
+<h1>Einstellungen</h1>
+
+<style>
+  details.section-group {
+    border: 1px solid var(--border, #2d3748);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    background: var(--card, #1e293b);
+  }
+  details.section-group summary {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-weight: bold;
+    background: var(--bg-subtle, #0f172a);
+    color: var(--text, #e2e8f0);
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  details.section-group summary::-webkit-details-marker { display: none; }
+  details.section-group summary::after { content: '▸'; font-size: 18px; transition: transform 0.2s; }
+  details.section-group[open] summary::after { transform: rotate(90deg); }
+  details.section-group .section-body { padding: 16px; }
+  details.section-group[open] summary { border-bottom: 1px solid var(--border, #2d3748); }
+  .missing-badge { background: #ef4444; color: white; font-size: 11px; padding: 3px 8px; border-radius: 4px; margin-left: 10px; text-transform: uppercase; font-weight: bold; }
+</style>
+
+<form method="post" class="card" style="background: transparent; border: none; box-shadow: none;">
+  {{ form.hidden_tag() }}
+
+  {# Punkteberechnung #}
+  <details class="section-group" {% if pts_missing %}open{% endif %}>
+    <summary>⚽ Punkteberechnung {% if pts_missing %}<span class="missing-badge">⚠ Nicht konfiguriert</span>{% endif %}</summary>
+    <div class="section-body">
+      <div class="grid-3">
+        <label>{{ form.points_exact.label }} {{ form.points_exact(class_='input') }}</label>
+        <label>{{ form.points_diff.label }} {{ form.points_diff(class_='input') }}</label>
+        <label>{{ form.points_tendency.label }} {{ form.points_tendency(class_='input') }}</label>
+      </div>
+    </div>
+  </details>
+
+  {# Pott / Einsatz #}
+  <details class="section-group" {% if pot_missing %}open{% endif %}>
+    <summary>💰 Pott / Einsatz {% if pot_missing %}<span class="missing-badge">⚠ Nicht konfiguriert</span>{% endif %}</summary>
+    <div class="section-body">
+      <div class="grid-3" style="grid-template-columns: 1fr 1fr;">
+        <label>{{ form.pot_amount.label }} {{ form.pot_amount(class_='input', inputmode='numeric') }}
+          <small class="muted">Einsatz pro Spieler. Erscheint im Profil &amp; Pott-Banner.</small>
+        </label>
+        <label>{{ form.pot_currency.label }} {{ form.pot_currency(class_='input', placeholder='€') }}</label>
+      </div>
+      <label>{{ form.pot_intro.label }} {{ form.pot_intro(class_='input', rows=3, placeholder='z.B. wie/wohin gezahlt werden soll') }}
+        <small class="muted">Wird auf der Gewinne-Seite und im Profil angezeigt.</small>
+      </label>
+      <p class="muted small">
+        👥 <a href="{{ url_for('admin.users') }}">Spielerverwaltung →</a> ·
+        🏆 <a href="{{ url_for('admin.admin_prizes') }}">Preise verwalten →</a>
+      </p>
+    </div>
+  </details>
+
+  {# E-Mail / SMTP #}
+  <details class="section-group" {% if mail_missing %}open{% endif %}>
+    <summary>📧 E-Mail / SMTP {% if mail_missing %}<span class="missing-badge">⚠ Nicht konfiguriert</span>{% endif %}</summary>
+    <div class="section-body">
+      <p class="muted small">Für Passwort-Reset, Erinnerungen und spätere Benachrichtigungen.</p>
+      <div class="settings-subcard">
+        <div class="grid-3" style="grid-template-columns: 2fr 1fr;">
+          <label>{{ form.mail_server.label }} {{ form.mail_server(class_='input', placeholder='smtp.example.de') }}</label>
+          <label>{{ form.mail_port.label }} {{ form.mail_port(class_='input', inputmode='numeric', placeholder='587') }}</label>
+        </div>
+        <label>{{ form.mail_username.label }} {{ form.mail_username(class_='input', placeholder='mail@example.de') }}</label>
+        <label>{{ form.mail_password.label }} {{ form.mail_password(class_='input', placeholder='App-Passwort oder SMTP-Passwort') }}</label>
+        <label>{{ form.mail_default_sender.label }} {{ form.mail_default_sender(class_='input', placeholder='tipprunde@example.de') }}</label>
+        <div class="mail-check-row">
+          <label class="check">{{ form.mail_use_tls() }} <span>STARTTLS</span></label>
+          <label class="check">{{ form.mail_use_ssl() }} <span>SSL</span></label>
+        </div>
+        <div class="grid-3" style="grid-template-columns: 1fr auto; align-items:end;">
+          <label>{{ form.mail_test_recipient.label }} {{ form.mail_test_recipient(class_='input', placeholder='empfaenger@example.de') }}</label>
+          <button type="submit" class="btn-ghost" formaction="{{ url_for('admin.test_mail') }}" formmethod="post">
+            ✉ Testmail senden
+          </button>
+        </div>
+        <small class="muted">Hinweis: Bei Gmail/Outlook meist App-Passwort verwenden. TLS = Port 587, SSL = Port 465.</small>
+      </div>
+    </div>
+  </details>
+
+  {# APIs #}
+  <details class="section-group" {% if api_missing %}open{% endif %}>
+    <summary>🌐 APIs {% if api_missing %}<span class="missing-badge">⚠ Nicht konfiguriert</span>{% endif %}</summary>
+    <div class="section-body">
+      <label>{{ form.football_data_token.label }} {{ form.football_data_token(class_='input', placeholder='Token von football-data.org') }}</label>
+    </div>
+  </details>
+
+  {# VAPID #}
+  <details class="section-group" {% if vapid_missing %}open{% endif %}>
+    <summary>🔔 Push Notifications (VAPID) {% if vapid_missing %}<span class="missing-badge">⚠ Nicht konfiguriert</span>{% endif %}</summary>
+    <div class="section-body">
+      <label>{{ form.vapid_public.label }} {{ form.vapid_public(class_='input', placeholder='VAPID Public Key') }}</label>
+      <label>{{ form.vapid_private.label }} {{ form.vapid_private(class_='input', placeholder='VAPID Private Key') }}</label>
+      <small class="muted">Erstellen mit: <code>vapid --gen</code></small>
+    </div>
+  </details>
+
+
+
+  <div class="form-actions">
+    {{ form.submit(class_='btn-primary') }}
+  </div>
+</form>
+{% endblock %}

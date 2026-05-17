@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Preise verwalten{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.dashboard') }}" class="back-link">← Admin</a>
+
+<div class="page-header">
+  <div>
+    <h1>🏆 Preise &amp; Pott</h1>
+    <p class="muted small">Konfiguriere die Gewinne, die auf der öffentlichen Seite angezeigt werden.</p>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('main.prizes') }}" class="btn-ghost btn-sm" target="_blank">👁 Vorschau</a>
+    <a href="{{ url_for('admin.prize_form') }}" class="btn-primary btn-sm">➕ Neuer Preis</a>
+  </div>
+</div>
+
+<!-- Pott-Status -->
+<div class="pot-summary-card">
+  <div class="psc-stat">
+    <div class="num">{{ pot.pot_total }}</div>
+    <div class="lbl">{{ pot.currency }} aktuell</div>
+  </div>
+  <div class="psc-stat">
+    <div class="num text-ok">{{ pot.paid_count }}</div>
+    <div class="lbl">bezahlt</div>
+  </div>
+  <div class="psc-stat">
+    <div class="num text-warn">{{ pot.missing_count }}</div>
+    <div class="lbl">offen</div>
+  </div>
+  <div class="psc-stat">
+    <div class="num">{{ pot.amount_per }} {{ pot.currency }}</div>
+    <div class="lbl">Einsatz</div>
+  </div>
+</div>
+<p class="muted small" style="margin-bottom:20px">
+  💡 Den Einsatz pro Spieler ändern unter <a href="{{ url_for('admin.settings') }}">Admin → Einstellungen</a>.
+</p>
+
+{% if not prizes %}
+  <div class="card center pad">
+    <p class="muted">Noch keine Preise konfiguriert.</p>
+    <a href="{{ url_for('admin.prize_form') }}" class="btn-primary" style="margin-top:14px">Ersten Preis anlegen</a>
+  </div>
+{% else %}
+<div class="prize-admin-list">
+  {% for p in prizes %}
+  <div class="prize-admin-row {{ 'inactive' if not p.active }}">
+    <div class="par-icon" style="background: {{ p.color }}22; color: {{ p.color }};">{{ p.icon }}</div>
+    <div class="par-body">
+      <div class="par-head">
+        <strong>{{ p.title }}</strong>
+        <span class="trigger-badge">
+          {% if p.rank == 0 %}Sonderpreis{% else %}Platz {{ p.rank }}{% endif %}
+        </span>
+        {% if not p.active %}<span class="trigger-badge" style="background:rgba(239,68,68,.15);color:var(--danger)">inaktiv</span>{% endif %}
+      </div>
+      {% if p.description %}<p class="muted small">{{ p.description }}</p>{% endif %}
+      {% if p.amount %}<div class="par-amount" style="color:{{ p.color }}">{{ p.amount }}</div>{% endif %}
+    </div>
+    <div class="par-actions">
+      <a href="{{ url_for('admin.prize_form', prize_id=p.id) }}" class="btn-ghost btn-xs">✏️</a>
+      <form method="post" action="{{ url_for('admin.prize_delete', prize_id=p.id) }}"
+            onsubmit="return confirm('Preis {{ p.title }} wirklich löschen?')" style="display:inline">
+        <button class="btn-danger btn-xs">🗑</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

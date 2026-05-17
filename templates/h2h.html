@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}H2H vs. {{ other.username }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('main.leaderboard') }}" class="back-link">← Tabelle</a>
+
+<div class="card">
+  <h1>⚔ Head-to-Head</h1>
+  <div class="h2h-header">
+    <div class="h2h-side">
+      <strong>{{ current_user.username }} (du)</strong>
+      <div class="h2h-num">{{ me_pts }}</div>
+    </div>
+    <div class="h2h-vs">vs</div>
+    <div class="h2h-side">
+      <strong>{{ other.username }}</strong>
+      <div class="h2h-num">{{ other_pts }}</div>
+    </div>
+  </div>
+
+  <div class="scroll-x">
+    <table class="table compact">
+      <thead><tr><th>Spiel</th><th>Du</th><th>{{ other.username }}</th><th>Erg.</th></tr></thead>
+      <tbody>
+      {% for m in common %}
+        <tr>
+          <td>
+            <strong>{{ m.home_team.short_name }} - {{ m.away_team.short_name }}</strong>
+            <small class="muted" style="display:block">ST {{ m.matchday }}</small>
+          </td>
+          <td>
+            <strong>{{ my[m.id].home_tip }}:{{ my[m.id].away_tip }}</strong>
+            <span class="pts-pill {{ 'good' if my[m.id].points }}">{{ my[m.id].points or 0 }}</span>
+          </td>
+          <td>
+            <strong>{{ their[m.id].home_tip }}:{{ their[m.id].away_tip }}</strong>
+            <span class="pts-pill {{ 'good' if their[m.id].points }}">{{ their[m.id].points or 0 }}</span>
+          </td>
+          <td>{% if m.home_score is not none %}{{ m.home_score }}:{{ m.away_score }}{% else %}—{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

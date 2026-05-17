@@ -1,0 +1,25 @@
+{
+  "name": "Wulmstörper Tipprunde",
+  "short_name": "Tipprunde",
+  "description": "Das Bundesliga-Tippspiel der Wulmstörper – tippe, gewinne, genieße!",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "lang": "de",
+  "categories": ["sports", "games", "entertainment"],
+  "icons": [
+    { "src": "/static/uploads/logo_72.png", "sizes": "72x72", "type": "image/png", "purpose": "any" },
+    { "src": "/static/uploads/logo_96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
+    { "src": "/static/uploads/logo_128.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/static/uploads/logo_144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
+    { "src": "/static/uploads/logo_192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/static/uploads/logo_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Jetzt tippen", "short_name": "Tippen", "description": "Tipps für den aktuellen Spieltag abgeben", "url": "/schedule", "icons": [{ "src": "/static/uploads/logo_96.png", "sizes": "96x96" }] },
+    { "name": "Tabelle", "short_name": "Tabelle", "description": "Aktuelle Tipp-Tabelle anzeigen", "url": "/leaderboard", "icons": [{ "src": "/static/uploads/logo_96.png", "sizes": "96x96" }] }
+  ],
+  "prefer_related_applications": false
+}

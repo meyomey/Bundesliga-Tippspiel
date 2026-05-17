@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ badge.name }} vergeben{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.badges') }}" class="back-link">← Badges</a>
+
+<div class="badge-award-head">
+  <div class="bah-icon" style="background: {{ badge.color }}22; color: {{ badge.color }};">{{ badge.icon }}</div>
+  <div>
+    <h1>{{ badge.name }}</h1>
+    <p class="muted small">{{ badge.description }}</p>
+  </div>
+</div>
+
+<form method="post" id="badgeAwardForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
+
+  <div class="card">
+    <div class="card-header">
+      <h2>👥 Spieler auswählen ({{ all_users|length }})</h2>
+      <div style="display:flex; gap:6px;">
+        <button type="button" class="btn-ghost btn-xs" id="selectAll">Alle</button>
+        <button type="button" class="btn-ghost btn-xs" id="selectNone">Keinen</button>
+        <button type="button" class="btn-ghost btn-xs" id="selectInverse">Invertieren</button>
+      </div>
+    </div>
+
+    <div class="user-pick-grid">
+      {% for u in all_users %}
+        {% set has = u.id in awarded_user_ids %}
+        <label class="user-pick {{ 'has-badge' if has }}">
+          <input type="checkbox" name="user_ids" value="{{ u.id }}" {{ 'checked' if has }} />
+          <div class="up-avatar">
+            {% if u.avatar and u.avatar != 'default.png' %}
+              <img src="{{ url_for('static', filename='uploads/' + u.avatar) }}" alt="" />
+            {% else %}
+              <div class="avatar-fallback small">{{ u.username[0]|upper }}</div>
+            {% endif %}
+          </div>
+          <div class="up-info">
+            <strong>{{ u.username }}</strong>
+            {% if has %}<small class="up-has">✅ hat Badge</small>{% endif %}
+          </div>
+        </label>
+      {% endfor %}
+    </div>
+
+    <div class="form-actions" style="border-top: 1px solid var(--border); padding-top: 16px;">
+      <button type="submit" name="action" value="award" class="btn-primary">
+        ✅ An ausgewählte vergeben
+      </button>
+      <button type="submit" name="action" value="revoke" class="btn-danger"
+              onclick="return confirm('Wirklich Badge bei ausgewählten entziehen?')">
+        🗑 Bei ausgewählten entziehen
+      </button>
+    </div>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const cbs = () => document.querySelectorAll('input[name="user_ids"]');
+  document.getElementById('selectAll')?.addEventListener('click', () => {
+    cbs().forEach(cb => { cb.checked = true; cb.closest('.user-pick').classList.add('selected'); });
+  });
+  document.getElementById('selectNone')?.addEventListener('click', () => {
+    cbs().forEach(cb => { cb.checked = false; cb.closest('.user-pick').classList.remove('selected'); });
+  });
+  document.getElementById('selectInverse')?.addEventListener('click', () => {
+    cbs().forEach(cb => {
+      cb.checked = !cb.checked;
+      cb.closest('.user-pick').classList.toggle('selected', cb.checked);
+    });
+  });
+  // Visuelles Feedback initial + bei Klick
+  cbs().forEach(cb => {
+    cb.closest('.user-pick').classList.toggle('selected', cb.checked);
+    cb.addEventListener('change', () => {
+      cb.closest('.user-pick').classList.toggle('selected', cb.checked);
+    });
+  });
+})();
+</script>
+{% endblock %}

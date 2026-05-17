@@ -1,0 +1,597 @@
+{% extends "base.html" %}
+{% block title %}{{ match.home_team.short_name }} vs. {{ match.away_team.short_name }}{% endblock %}
+
+{% macro form_strip(form_list) %}
+  <div class="form-strip">
+    {% for f in form_list|reverse %}
+      <span class="form-dot form-{{ f.result }}"
+            title="{{ 'Heim' if f.home else 'Auswärts' }} vs {{ f.opponent.short_name }} {{ f.score }}">{{ f.result }}</span>
+    {% else %}
+      <span class="muted small">— —</span>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{% block content %}
+
+<!-- ============ NAVIGATION HEADER ============ -->
+<div class="md-nav-bar">
+  <a href="{{ url_for('main.schedule', matchday=match.matchday) }}" class="md-nav-back">
+    <span>↑</span><span class="md-nav-back-label">Übersicht</span>
+  </a>
+
+  <div class="md-nav-progress">
+    <span class="md-nav-pos">{{ nav_position }} / {{ nav_total }}</span>
+    <div class="md-nav-bar-track">
+      <div class="md-nav-bar-fill" style="width:{{ (nav_position / nav_total * 100)|round }}%"></div>
+    </div>
+    <span class="md-nav-md">Spieltag {{ match.matchday }}</span>
+  </div>
+
+  <div class="md-nav-buttons">
+    {% if prev_id %}
+      <a href="{{ url_for('main.match_detail', match_id=prev_id) }}"
+         class="md-nav-btn" id="navPrev" title="Vorheriges Spiel (←)">
+        <span>←</span>
+      </a>
+    {% else %}
+      <span class="md-nav-btn disabled"><span>←</span></span>
+    {% endif %}
+    {% if next_id %}
+      <a href="{{ url_for('main.match_detail', match_id=next_id) }}"
+         class="md-nav-btn" id="navNext" title="Nächstes Spiel (→)">
+        <span>→</span>
+      </a>
+    {% else %}
+      <span class="md-nav-btn disabled"><span>→</span></span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ============ DOT-INDICATOR ============ -->
+<div class="md-dots">
+  {% for sid in sibling_ids %}
+    <a href="{{ url_for('main.match_detail', match_id=sid) }}"
+       class="md-dot {{ 'active' if sid == match.id }}"
+       title="Spiel {{ loop.index }}"></a>
+  {% endfor %}
+</div>
+
+<!-- ============ MATCH + TIPP: EINHEITLICHE KARTE ============ -->
+<section class="tip-unified swipe-area" id="swipeArea"
+     data-prev="{{ url_for('main.match_detail', match_id=prev_id) if prev_id else '' }}"
+     data-next="{{ url_for('main.match_detail', match_id=next_id) if next_id else '' }}"
+     data-match-id="{{ match.id }}"
+     data-can-tip="{{ '1' if match.is_open() else '0' }}">
+
+  <!-- Topline: Datum, Status, Wetter kompakt -->
+  <div class="tu-topline">
+    <div class="tu-kickoff">
+      <span class="tu-kickoff-day">{{ match.kickoff|de('%A') }}</span>
+      <strong>{{ match.kickoff|de('%d.%m.%Y · %H:%M') }} Uhr</strong>
+    </div>
+    <div class="tu-top-badges">
+      {% if match.status == 'live' %}
+        <span class="status status-live"><span class="live-dot"></span> LIVE</span>
+      {% elif match.status == 'finished' %}
+        <span class="status status-finished">✓ Endstand</span>
+      {% else %}
+        <span class="status status-scheduled">geplant</span>
+      {% endif %}
+      {% if weather %}
+        <span class="tu-weather-pill" title="{{ weather.label }} · Wind {{ weather.wind_kmh }} km/h">
+          <span>{{ weather.icon }}</span>
+          <strong>{{ weather.temp }}°</strong>
+          {% if weather.rain_mm > 0 %}<small>💧 {{ weather.rain_mm }}mm</small>{% endif %}
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="tu-board">
+    <!-- Heimteam -->
+    <div class="tu-team tu-home">
+      <img src="{{ match.home_team.logo }}" alt="" class="tu-logo" />
+      <div class="tu-team-name">
+        <strong>{{ match.home_team.name }}</strong>
+        <small>{{ match.home_team.short_name }}</small>
+      </div>
+      {% if home_pos %}<span class="tu-position">#{{ home_pos.rank }} · {{ home_pos.points }} Pkt</span>{% endif %}
+      <div class="tu-form">{{ form_strip(home_form) }}</div>
+    </div>
+
+    <!-- Zentrum: Ergebnis oder Tipp-Eingabe -->
+    <div class="tu-center">
+      {% if match.status == 'finished' %}
+        <div class="tu-result-score">{{ match.home_score }} : {{ match.away_score }}</div>
+        {% if pred %}
+          <div class="tu-pred-summary">
+            Dein Tipp: <strong>{{ pred.home_tip }}:{{ pred.away_tip }}</strong>
+            {% if pred.joker %}<span class="joker">⚡</span>{% endif %}
+            <span class="pts-pill {{ 'good' if pred.points }}">{{ pred.points or 0 }} Pkt</span>
+          </div>
+        {% endif %}
+      {% elif match.is_open() %}
+        <form method="post" id="tipForm" data-match-id="{{ match.id }}" class="tu-tip-form">
+          <input type="hidden" name="form" value="tip">
+          {{ tip_form.hidden_tag() }}
+
+          <div class="tu-score-inputs" aria-label="Tipp eingeben">
+            <div class="tu-score-side">
+              <button type="button" class="tip-step-btn minus" data-target="home_tip" aria-label="Heim minus">−</button>
+              <input type="number" name="home_tip" id="home_tip"
+                     value="{{ pred.home_tip if pred else 1 }}"
+                     min="0" max="20" inputmode="numeric"
+                     class="tip-step-input" />
+              <button type="button" class="tip-step-btn plus" data-target="home_tip" aria-label="Heim plus">+</button>
+            </div>
+            <span class="tu-colon">:</span>
+            <div class="tu-score-side">
+              <button type="button" class="tip-step-btn minus" data-target="away_tip" aria-label="Auswärts minus">−</button>
+              <input type="number" name="away_tip" id="away_tip"
+                     value="{{ pred.away_tip if pred else 1 }}"
+                     min="0" max="20" inputmode="numeric"
+                     class="tip-step-input" />
+              <button type="button" class="tip-step-btn plus" data-target="away_tip" aria-label="Auswärts plus">+</button>
+            </div>
+          </div>
+
+          {% if match.status != 'finished' %}
+          <div class="tu-countdown" id="countdown" data-target="{{ match.kickoff.isoformat() }}Z">
+            <span><strong class="d">--</strong><small>T</small></span>
+            <span><strong class="h">--</strong><small>h</small></span>
+            <span><strong class="m">--</strong><small>m</small></span>
+            <span><strong class="s">--</strong><small>s</small></span>
+          </div>
+          {% endif %}
+
+          <div class="quick-tendency tu-tendency">
+            <button type="button" class="qt-btn" data-tendency="home">🏠 Heim</button>
+            <button type="button" class="qt-btn" data-tendency="draw">⚖ Remis</button>
+            <button type="button" class="qt-btn" data-tendency="away">✈ Auswärts</button>
+          </div>
+
+          <label class="joker-toggle {{ 'is-on' if pred and pred.joker }} tu-joker">
+            <input type="checkbox" name="joker" id="jokerToggle" {{ 'checked' if pred and pred.joker }} />
+            <span class="joker-icon">⚡</span>
+            <span class="joker-text"><strong>Joker</strong><small>×2 Punkte</small></span>
+          </label>
+
+          <div class="tu-actions">
+            {{ tip_form.submit(class_='btn-primary btn-block', value='💾 Speichern & weiter') }}
+            <span id="tipSaveStatus" class="save-status"></span>
+          </div>
+        </form>
+      {% else %}
+        {% if pred %}
+          <div class="tu-result-score small">{{ pred.home_tip }} : {{ pred.away_tip }}{% if pred.joker %}<span class="joker">⚡</span>{% endif %}</div>
+          <small class="muted">Dein Tipp</small>
+        {% else %}
+          <p class="muted">Du hast keinen Tipp abgegeben.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- Auswärtsteam -->
+    <div class="tu-team tu-away">
+      <img src="{{ match.away_team.logo }}" alt="" class="tu-logo" />
+      <div class="tu-team-name">
+        <strong>{{ match.away_team.name }}</strong>
+        <small>{{ match.away_team.short_name }}</small>
+      </div>
+      {% if away_pos %}<span class="tu-position">#{{ away_pos.rank }} · {{ away_pos.points }} Pkt</span>{% endif %}
+      <div class="tu-form">{{ form_strip(away_form) }}</div>
+    </div>
+  </div>
+
+  <div class="tu-footer">
+    <p class="tip-hint">💡 Pfeiltasten ← → · Wischen auf Smartphone · Auto-Save beim Wechsel</p>
+    {% if pred %}
+    <button type="button" class="btn-ghost btn-sm share-btn"
+            data-share-text="⚽ Mein Tipp für {{ match.home_team.name }} vs {{ match.away_team.name }} (ST {{ match.matchday }}): {{ pred.home_tip }}:{{ pred.away_tip }}{% if pred.joker %} ⚡ JOKER{% endif %} — Wulmstörper Tipprunde">
+      📱 Tipp teilen
+    </button>
+    {% endif %}
+  </div>
+</section>
+
+<!-- ============ TIPP-VERTEILUNG (Vergleich zum Durchschnitt) ============ -->
+{% if tip_dist and tip_dist.n_total > 1 %}
+<section class="tip-dist-card">
+  <div class="tip-dist-head">
+    <strong>📊 Wie tippen die anderen?</strong>
+    <span class="muted">{{ tip_dist.n_total }} Tipps insgesamt</span>
+  </div>
+  <div class="td-tendency-bar">
+    {% if tip_dist.tendency_pct.home > 0 %}
+    <div class="td-segment home" style="width: {{ tip_dist.tendency_pct.home }}%"
+         title="Heimsieg: {{ tip_dist.tendency_pct.home }}%">
+      🏠 {{ tip_dist.tendency_pct.home }}%
+    </div>
+    {% endif %}
+    {% if tip_dist.tendency_pct.draw > 0 %}
+    <div class="td-segment draw" style="width: {{ tip_dist.tendency_pct.draw }}%"
+         title="Unentschieden: {{ tip_dist.tendency_pct.draw }}%">
+      ⚖ {{ tip_dist.tendency_pct.draw }}%
+    </div>
+    {% endif %}
+    {% if tip_dist.tendency_pct.away > 0 %}
+    <div class="td-segment away" style="width: {{ tip_dist.tendency_pct.away }}%"
+         title="Auswärtssieg: {{ tip_dist.tendency_pct.away }}%">
+      ✈ {{ tip_dist.tendency_pct.away }}%
+    </div>
+    {% endif %}
+  </div>
+  <div class="td-most-common">
+    <span>🎯 Häufigster Tipp:</span>
+    <span class="tdc-tip">{{ tip_dist.most_common_tip }}</span>
+    <span class="tdc-pct">{{ tip_dist.most_common_count }}× ({{ tip_dist.most_common_pct }}%)</span>
+  </div>
+  {% if pred %}
+    {% set my_tip_str = pred.home_tip|string + ':' + pred.away_tip|string %}
+    {% set my_count = 0 %}
+    {% for combo, cnt in tip_dist.all_combos %}
+      {% if combo == my_tip_str %}{% set _ = my_count.__add__(cnt) %}{% endif %}
+    {% endfor %}
+    <div class="td-your-tip">
+      Dein Tipp <strong>{{ pred.home_tip }}:{{ pred.away_tip }}</strong>
+      {% set unique = tip_dist.most_common_tip != my_tip_str %}
+      {% if unique %}
+        — du gehörst zur Minderheit, mutig! 💪
+      {% else %}
+        — gleicher Tipp wie die meisten anderen.
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<!-- ============ H2H + WEITERE INFOS ============ -->
+{% if h2h.matches %}
+<section class="card">
+  <div class="card-header">
+    <h2>📊 Direkter Vergleich</h2>
+    <span class="muted small">Letzte {{ h2h.matches|length }} Duelle</span>
+  </div>
+
+  <div class="h2h-summary">
+    <div class="h2h-bar-area">
+      {% set total = h2h.home_wins + h2h.draws + h2h.away_wins %}
+      <div class="h2h-stat"><strong>{{ h2h.home_wins }}</strong><small title="{{ match.home_team.name }}">{{ match.home_team.name }}</small></div>
+      <div class="h2h-stat draw"><strong>{{ h2h.draws }}</strong><small>Unentsch.</small></div>
+      <div class="h2h-stat"><strong>{{ h2h.away_wins }}</strong><small title="{{ match.away_team.name }}">{{ match.away_team.name }}</small></div>
+    </div>
+    {% if total %}
+    <div class="h2h-bar">
+      <div class="bar-home" style="width:{{ (h2h.home_wins/total*100)|round(1) }}%"></div>
+      <div class="bar-draw" style="width:{{ (h2h.draws/total*100)|round(1) }}%"></div>
+      <div class="bar-away" style="width:{{ (h2h.away_wins/total*100)|round(1) }}%"></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="scroll-x">
+    <table class="table compact">
+      <thead><tr><th>Datum</th><th>Spiel</th><th>Erg.</th></tr></thead>
+      <tbody>
+        {% for h in h2h.matches %}
+        <tr>
+          <td><small>{{ h.match.kickoff|de('%d.%m.%y') }}</small></td>
+          <td>
+            <img src="{{ h.match.home_team.logo }}" class="mini-logo" alt="" />
+            {{ h.match.home_team.short_name }} - {{ h.match.away_team.short_name }}
+            <img src="{{ h.match.away_team.logo }}" class="mini-logo" alt="" />
+          </td>
+          <td><strong>{{ h.match.home_score }}:{{ h.match.away_score }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<!-- ============ KOMMENTARE ============ -->
+<section class="card">
+  <h2>💬 Diskussion <span class="muted small">({{ comments|length }})</span></h2>
+  <form method="post" class="comment-form">
+    <input type="hidden" name="form" value="comment">
+    {{ comment_form.hidden_tag() }}
+    {{ comment_form.text(class_='input', rows=2, placeholder='Deine Meinung...') }}
+    {{ comment_form.submit(class_='btn-primary btn-sm') }}
+  </form>
+
+  <div class="comments">
+    {% for c in comments %}
+      <div class="comment">
+        <strong>{{ c.user.username }}</strong>
+        <small class="muted">{{ c.created_at|de('%d.%m. %H:%M') }}</small>
+        <p>{{ c.text }}</p>
+      </div>
+    {% else %}
+      <p class="muted">Noch keine Kommentare.</p>
+    {% endfor %}
+  </div>
+</section>
+
+{% if all_preds %}
+<section class="card">
+  <h2>📋 Alle Tipps</h2>
+  <div class="scroll-x">
+    <table class="table compact">
+      <thead><tr><th>Spieler</th><th>Tipp</th><th class="center">⚡</th><th class="right">Pkt</th></tr></thead>
+      <tbody>
+      {% for p in all_preds|sort(attribute='points', reverse=True) %}
+        <tr>
+          <td>{{ p.user.username }}</td>
+          <td><strong>{{ p.home_tip }}:{{ p.away_tip }}</strong></td>
+          <td class="center">{% if p.joker %}⚡{% endif %}</td>
+          <td class="right"><span class="pts-pill {{ 'good' if p.points }}">{{ p.points or 0 }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<!-- ============ FLOATING NAV BUTTONS (Mobile Bottom) ============ -->
+<div class="float-nav-mobile">
+  {% if prev_id %}
+    <a href="{{ url_for('main.match_detail', match_id=prev_id) }}" class="float-nav-btn">← Vorher</a>
+  {% else %}
+    <span class="float-nav-btn disabled">←</span>
+  {% endif %}
+  <span class="float-nav-md">{{ nav_position }} / {{ nav_total }}</span>
+  {% if next_id %}
+    <a href="{{ url_for('main.match_detail', match_id=next_id) }}" class="float-nav-btn primary">Nächstes →</a>
+  {% else %}
+    <a href="{{ url_for('main.schedule', matchday=match.matchday) }}" class="float-nav-btn primary">✓ Fertig</a>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // ============= COUNTDOWN =============
+  const cd = document.getElementById('countdown');
+  if (cd) {
+    const target = new Date(cd.dataset.target);
+    function tick() {
+      const diff = target - new Date();
+      if (diff <= 0) { cd.innerHTML = '<strong>ANPFIFF!</strong>'; return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor(diff % 86400000 / 3600000);
+      const m = Math.floor(diff % 3600000 / 60000);
+      const s = Math.floor(diff % 60000 / 1000);
+      const dEl = cd.querySelector('.d'), hEl = cd.querySelector('.h'),
+            mEl = cd.querySelector('.m'), sEl = cd.querySelector('.s');
+      if (dEl) dEl.textContent = d;
+      if (hEl) hEl.textContent = String(h).padStart(2, '0');
+      if (mEl) mEl.textContent = String(m).padStart(2, '0');
+      if (sEl) sEl.textContent = String(s).padStart(2, '0');
+    }
+    tick(); setInterval(tick, 1000);
+  }
+
+  // ============= STEPPER (+/-) =============
+  document.querySelectorAll('.tip-step-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.target;
+      const input = document.getElementById(target);
+      if (!input) return;
+      const cur = parseInt(input.value) || 0;
+      const isPlus = btn.classList.contains('plus');
+      const next = isPlus ? Math.min(20, cur + 1) : Math.max(0, cur - 1);
+      input.value = next;
+      input.classList.add('value-flash');
+      setTimeout(() => input.classList.remove('value-flash'), 250);
+      markDirty();
+    });
+  });
+
+  // ============= QUICK-TENDENCY =============
+  document.querySelectorAll('.qt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.tendency;
+      const home = document.getElementById('home_tip');
+      const away = document.getElementById('away_tip');
+      if (!home || !away) return;
+      if (t === 'home') { home.value = 2; away.value = 1; }
+      if (t === 'draw') { home.value = 1; away.value = 1; }
+      if (t === 'away') { home.value = 1; away.value = 2; }
+      home.classList.add('value-flash'); away.classList.add('value-flash');
+      setTimeout(() => {
+        home.classList.remove('value-flash'); away.classList.remove('value-flash');
+      }, 250);
+      markDirty();
+    });
+  });
+
+  // ============= JOKER-TOGGLE =============
+  const jokerToggle = document.getElementById('jokerToggle');
+  if (jokerToggle) {
+    const lbl = jokerToggle.closest('.joker-toggle');
+    jokerToggle.addEventListener('change', () => {
+      lbl.classList.toggle('is-on', jokerToggle.checked);
+      markDirty();
+    });
+  }
+
+  // ============= TIPP-INPUTS LIVE-CHANGE =============
+  document.querySelectorAll('.tip-step-input').forEach(input => {
+    input.addEventListener('input', markDirty);
+  });
+
+  // ============= AUTO-SAVE STATE =============
+  let isDirty = false;
+  let isSaving = false;
+  const swipeArea = document.getElementById('swipeArea');
+  const canTip = swipeArea && swipeArea.dataset.canTip === '1';
+  const matchId = swipeArea ? swipeArea.dataset.matchId : null;
+  const statusEl = document.getElementById('tipSaveStatus');
+
+  function markDirty() {
+    isDirty = true;
+    if (statusEl) statusEl.innerHTML = '✏️ <em>Änderungen ungespeichert</em>';
+  }
+
+  async function saveTip() {
+    if (!canTip || !isDirty || !matchId) return true;
+    if (isSaving) return false;
+    const home = document.getElementById('home_tip');
+    const away = document.getElementById('away_tip');
+    if (!home || !away) return true;
+    isSaving = true;
+    if (statusEl) statusEl.innerHTML = '⏳ Speichern...';
+    try {
+      const res = await fetch(`/api/tip/${matchId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          home_tip: parseInt(home.value) || 0,
+          away_tip: parseInt(away.value) || 0,
+          joker: !!(jokerToggle && jokerToggle.checked),
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        isDirty = false;
+        if (statusEl) statusEl.innerHTML = '✅ Gespeichert';
+        setTimeout(() => { if (statusEl && !isDirty) statusEl.innerHTML = ''; }, 2000);
+        return true;
+      } else {
+        if (statusEl) statusEl.innerHTML = `❌ ${data.error || 'Fehler'}`;
+        return false;
+      }
+    } catch (e) {
+      if (statusEl) statusEl.innerHTML = '❌ Netzwerkfehler';
+      return false;
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  // ============= NAVIGATION HANDLER =============
+  async function navigate(url) {
+    if (!url) return;
+    const ok = await saveTip();
+    // Egal ob Save geklappt hat - bei Fehler bleibt der User auf der Seite
+    if (ok || !isDirty) {
+      window.location.href = url;
+    }
+  }
+
+  document.querySelectorAll('#navPrev, #navNext, .float-nav-btn, .md-dot').forEach(el => {
+    if (el.tagName !== 'A') return;
+    el.addEventListener('click', e => {
+      if (!isDirty) return; // normaler Link
+      e.preventDefault();
+      navigate(el.href);
+    });
+  });
+
+  // Auch bei Klick auf "Speichern & weiter" (falls noch da):
+  const tipForm = document.getElementById('tipForm');
+  if (tipForm) {
+    tipForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ok = await saveTip();
+      if (ok) {
+        const nextLink = document.getElementById('navNext');
+        if (nextLink) {
+          window.location.href = nextLink.href;
+        } else {
+          // letztes Spiel → zur Übersicht
+          window.location.href = "{{ url_for('main.schedule', matchday=match.matchday) }}";
+        }
+      }
+    });
+  }
+
+  // ============= KEYBOARD SHORTCUTS =============
+  document.addEventListener('keydown', (e) => {
+    // Ignorieren wenn in Input/Textarea getippt wird
+    const tag = (e.target.tagName || '').toLowerCase();
+    const isInput = ['input', 'textarea', 'select'].includes(tag);
+
+    if (e.key === 'ArrowLeft' && !isInput) {
+      e.preventDefault();
+      const prev = document.getElementById('navPrev');
+      if (prev) navigate(prev.href);
+    } else if (e.key === 'ArrowRight' && !isInput) {
+      e.preventDefault();
+      const next = document.getElementById('navNext');
+      if (next) navigate(next.href);
+    } else if (e.key === 'ArrowUp' && isInput && (e.target.id === 'home_tip' || e.target.id === 'away_tip')) {
+      // arrow up im Score-Input erhöht (Browser macht das schon, aber wir markieren dirty)
+      markDirty();
+    } else if (e.key === 'ArrowDown' && isInput && (e.target.id === 'home_tip' || e.target.id === 'away_tip')) {
+      markDirty();
+    } else if (e.key === 'j' && !isInput) {
+      // J = Joker togglen
+      if (jokerToggle && !jokerToggle.disabled) {
+        jokerToggle.checked = !jokerToggle.checked;
+        jokerToggle.dispatchEvent(new Event('change'));
+      }
+    }
+  });
+
+  // ============= TOUCH-SWIPE =============
+  if (swipeArea) {
+    let touchStartX = 0, touchStartY = 0;
+    let touchEndX = 0, touchEndY = 0;
+    const SWIPE_THRESHOLD = 50;
+    const VERTICAL_TOLERANCE = 80;
+
+    swipeArea.addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    swipeArea.addEventListener('touchend', e => {
+      touchEndX = e.changedTouches[0].screenX;
+      touchEndY = e.changedTouches[0].screenY;
+      const dx = touchEndX - touchStartX;
+      const dy = touchEndY - touchStartY;
+      // Horizontaler Swipe? (ignoriert vertikales Scrollen)
+      if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dy) < VERTICAL_TOLERANCE) {
+        if (dx < 0) {
+          // Wisch nach links → nächstes Spiel
+          const nextUrl = swipeArea.dataset.next;
+          if (nextUrl) {
+            swipeArea.classList.add('swipe-out-left');
+            setTimeout(() => navigate(nextUrl), 200);
+          }
+        } else {
+          // Wisch nach rechts → vorheriges
+          const prevUrl = swipeArea.dataset.prev;
+          if (prevUrl) {
+            swipeArea.classList.add('swipe-out-right');
+            setTimeout(() => navigate(prevUrl), 200);
+          }
+        }
+      }
+    }, { passive: true });
+  }
+
+  // ============= BEFORE-UNLOAD WARNUNG =============
+  window.addEventListener('beforeunload', (e) => {
+    if (isDirty && !isSaving) {
+      // Versuche letzten Save sync per sendBeacon
+      const home = document.getElementById('home_tip');
+      const away = document.getElementById('away_tip');
+      if (home && away && matchId && navigator.sendBeacon) {
+        navigator.sendBeacon(`/api/tip/${matchId}`, new Blob([JSON.stringify({
+          home_tip: parseInt(home.value) || 0,
+          away_tip: parseInt(away.value) || 0,
+          joker: !!(jokerToggle && jokerToggle.checked),
+        })], { type: 'application/json' }));
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

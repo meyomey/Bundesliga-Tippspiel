@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Sondertipps{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>⭐ Sondertipps</h1>
+    <p class="muted small">Spezialfragen rund um die Saison – jede richtig getippte Frage bringt Bonuspunkte.</p>
+  </div>
+</div>
+
+{% if not questions %}
+  <div class="card center pad">
+    <p class="muted">Noch keine Sonderfragen vom Admin angelegt.</p>
+  </div>
+{% else %}
+
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
+
+  {% for q in questions %}
+    {% set ua = user_answers.get(q.id) %}
+    {% set ua_list = user_answer_lists.get(q.id, []) %}
+    {% set closed = q.deadline < current_time %}
+    {% set correct_set = q.correct_answer is not none %}
+
+    <div class="card special-card {{ 'closed' if closed }}">
+      <div class="sp-head">
+        <div>
+          <h3>{{ q.text }}</h3>
+          {% if q.description %}<p class="muted small">{{ q.description }}</p>{% endif %}
+          <span class="type-badge small-badge">
+            {% if q.answer_type == 'text' %}📝 Freitext
+            {% elif q.answer_type == 'choice' %}📋 Auswahl
+            {% elif q.answer_type == 'team' %}⚽ 1 Mannschaft
+            {% elif q.answer_type == 'multi_team' %}⚽ {{ q.multi_count }} Mannschaften
+            {% elif q.answer_type == 'yes_no' %}✓✗ Ja/Nein
+            {% elif q.answer_type == 'number' %}🔢 Zahl
+            {% endif %}
+          </span>
+        </div>
+        <div class="sp-meta">
+          <span class="pts-pill good">+{{ q.points_value }} Pkt</span>
+          <small class="muted">⏰ {{ q.deadline|dt }} Uhr</small>
+        </div>
+      </div>
+
+      <div class="sp-body">
+        {% if correct_set %}
+          {# AUFGELÖST → korrekte Antwort + User-Resultat zeigen #}
+          {% set cor_list = q.correct_answer|fromjson if q.answer_type == 'multi_team' else [] %}
+          <div class="sp-correct">
+            <strong>Korrekte Antwort:</strong>
+            {% if q.answer_type == 'multi_team' %}
+              <div class="team-tag-list">
+                {% for c in cor_list %}<span class="team-tag">⚽ {{ c }}</span>{% endfor %}
+              </div>
+            {% else %}
+              <span class="answer-show">{{ q.correct_answer }}</span>
+            {% endif %}
+
+            {% if ua %}
+              <div style="margin-top:10px">
+                <strong>Dein Tipp:</strong>
+                {% if q.answer_type == 'multi_team' %}
+                  <div class="team-tag-list">
+                    {% for u in ua_list %}
+                      <span class="team-tag {{ 'hit' if u in cor_list else 'miss' }}">
+                        {{ '✓' if u in cor_list else '✗' }} {{ u }}
+                      </span>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span class="answer-show">{{ ua.answer }}</span>
+                {% endif %}
+                {% if ua.points and ua.points > 0 %}
+                  <span class="pts-pill good" style="margin-left:8px">+{{ ua.points }} 🎯</span>
+                {% else %}
+                  <span class="pts-pill" style="margin-left:8px">0 Pkt ✗</span>
+                {% endif %}
+              </div>
+            {% else %}
+              <p class="muted small" style="margin-top:8px">Du hast keinen Tipp abgegeben.</p>
+            {% endif %}
+          </div>
+
+        {% elif closed %}
+          {# DEADLINE VORBEI, aber noch nicht ausgewertet #}
+          <div class="muted">⏳ Frist abgelaufen. Warte auf Auswertung.</div>
+          {% if ua %}
+            <div style="margin-top:8px">
+              Dein Tipp:
+              {% if q.answer_type == 'multi_team' and ua_list %}
+                <div class="team-tag-list">
+                  {% for u in ua_list %}<span class="team-tag">{{ u }}</span>{% endfor %}
+                </div>
+              {% else %}
+                <strong>{{ ua.answer }}</strong>
+              {% endif %}
+            </div>
+          {% endif %}
+
+        {% else %}
+          {# NOCH OFFEN: Eingabe je nach Typ #}
+
+          {% if q.answer_type == 'yes_no' %}
+            <div class="option-grid two-col">
+              {% for opt in ['Ja', 'Nein'] %}
+                <label class="option-tile {{ 'selected' if ua and ua.answer == opt }}">
+                  <input type="radio" name="q_{{ q.id }}" value="{{ opt }}" {{ 'checked' if ua and ua.answer == opt }} />
+                  <span>{{ '✅ ' if opt == 'Ja' else '❌ ' }}{{ opt }}</span>
+                </label>
+              {% endfor %}
+            </div>
+
+          {% elif q.answer_type == 'number' %}
+            <input type="number" name="q_{{ q.id }}" class="input"
+                   value="{{ ua.answer if ua else '' }}"
+                   {% if q.number_min is not none %}min="{{ q.number_min }}"{% endif %}
+                   {% if q.number_max is not none %}max="{{ q.number_max }}"{% endif %}
+                   inputmode="numeric"
+                   placeholder="{% if q.number_min is not none %}{{ q.number_min }}–{{ q.number_max }}{% else %}Deine Zahl...{% endif %}" />
+
+          {% elif q.answer_type == 'team' %}
+            <div class="team-grid">
+              {% for t in all_teams %}
+                <label class="team-pick {{ 'selected' if ua and ua.answer == t.name }}" title="{{ t.name }}">
+                  <input type="radio" name="q_{{ q.id }}" value="{{ t.name }}" {{ 'checked' if ua and ua.answer == t.name }} />
+                  <img src="{{ t.logo }}" alt="" />
+                  <span>{{ t.name }}</span>
+                </label>
+              {% endfor %}
+            </div>
+
+          {% elif q.answer_type == 'multi_team' %}
+            <p class="muted small">Wähle <strong>{{ q.multi_count }}</strong> Mannschaft{% if q.multi_count != 1 %}en{% endif %}:</p>
+            <div class="team-grid" data-multi-max="{{ q.multi_count }}" data-question="{{ q.id }}">
+              {% for t in all_teams %}
+                <label class="team-pick {{ 'selected' if t.name in ua_list }}" title="{{ t.name }}">
+                  <input type="checkbox" name="q_{{ q.id }}" value="{{ t.name }}" {{ 'checked' if t.name in ua_list }} />
+                  <img src="{{ t.logo }}" alt="" />
+                  <span>{{ t.name }}</span>
+                </label>
+              {% endfor %}
+            </div>
+            <small class="muted multi-counter" data-question="{{ q.id }}">
+              <span class="cnt">{{ ua_list|length }}</span> von {{ q.multi_count }} ausgewählt
+            </small>
+
+          {% elif q.answer_type == 'choice' and options.get(q.id) %}
+            <div class="option-grid">
+              {% for opt in options[q.id] %}
+                <label class="option-tile {{ 'selected' if ua and ua.answer == opt }}">
+                  <input type="radio" name="q_{{ q.id }}" value="{{ opt }}" {{ 'checked' if ua and ua.answer == opt }} />
+                  <span>{{ opt }}</span>
+                </label>
+              {% endfor %}
+            </div>
+
+          {% else %}{# text #}
+            <input type="text" name="q_{{ q.id }}" class="input"
+                   value="{{ ua.answer if ua else '' }}"
+                   placeholder="Deine Antwort..." />
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+
+  <div class="form-actions card flat">
+    <button type="submit" class="btn-primary btn-lg">💾 Alle Sondertipps speichern</button>
+  </div>
+</form>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Visuelles Feedback für team/option-pick
+document.querySelectorAll('.option-tile input, .team-pick input').forEach(el => {
+  el.addEventListener('change', () => {
+    if (el.type === 'radio') {
+      const name = el.name;
+      document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+        const tile = r.closest('.option-tile, .team-pick');
+        if (tile) tile.classList.toggle('selected', r.checked);
+      });
+    } else if (el.type === 'checkbox') {
+      const tile = el.closest('.team-pick');
+      if (tile) tile.classList.toggle('selected', el.checked);
+    }
+  });
+});
+
+// Multi-Team: Limit + Counter
+document.querySelectorAll('.team-grid[data-multi-max]').forEach(grid => {
+  const max = parseInt(grid.dataset.multiMax);
+  const qid = grid.dataset.question;
+  const counter = document.querySelector(`.multi-counter[data-question="${qid}"] .cnt`);
+  const checkboxes = grid.querySelectorAll('input[type=checkbox]');
+
+  function updateState() {
+    const checked = grid.querySelectorAll('input[type=checkbox]:checked');
+    if (counter) counter.textContent = checked.length;
+    const reachedMax = checked.length >= max;
+    checkboxes.forEach(cb => {
+      if (!cb.checked) {
+        cb.disabled = reachedMax;
+        const tile = cb.closest('.team-pick');
+        if (tile) tile.classList.toggle('disabled', reachedMax);
+      }
+    });
+  }
+  checkboxes.forEach(cb => cb.addEventListener('change', updateState));
+  updateState();
+});
+</script>
+{% endblock %}

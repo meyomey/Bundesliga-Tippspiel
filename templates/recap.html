@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Saison-Recap · {{ current_user.username }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('main.profile') }}" class="back-link">← Profil</a>
+
+<div class="recap-hero">
+  <span class="badge-pill">🎬 SAISON-WRAPPED</span>
+  <h1>
+    Hey <span class="recap-username">{{ current_user.username }}</span>,<br>
+    so war deine Saison!
+  </h1>
+  <p class="muted">{{ stats.total_tips }} Tipps · {{ stats.total_points }} Punkte · Platz {{ final_rank or '?' }}</p>
+</div>
+
+<div class="recap-grid">
+
+  <!-- 1. Punkte gesamt -->
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">💯</div>
+    <div class="recap-tile-num gold">{{ stats.total_points }}</div>
+    <h3>Punkte insgesamt</h3>
+    <p>aus {{ stats.total_tips }} abgegebenen Tipps</p>
+  </div>
+
+  <!-- 2. Aktueller Rang -->
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">🏅</div>
+    <div class="recap-tile-num">#{{ final_rank or '?' }}</div>
+    <h3>Aktueller Rang in der Rangliste</h3>
+    <p>{% if best_rank and best_rank < final_rank %}Beste Position bisher: #{{ best_rank }}{% else %}Halt dich oben!{% endif %}</p>
+  </div>
+
+  <!-- 3. Exakte Tipps -->
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">🎯</div>
+    <div class="recap-tile-num">{{ stats.exact }}</div>
+    <h3>Exakte Treffer</h3>
+    <p>Mut zur Präzision!</p>
+  </div>
+
+  <!-- 4. Spieltagsiege -->
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">🏆</div>
+    <div class="recap-tile-num gold">{{ md_wins_count }}</div>
+    <h3>Spieltagsiege</h3>
+    <p>{% if md_wins_count == 0 %}Der nächste kommt bestimmt!{% elif md_wins_count == 1 %}Erster Sieg im Sack!{% else %}Mehr als nur Glück!{% endif %}</p>
+  </div>
+
+  <!-- 5. Bester Spieltag -->
+  {% if best_md_num %}
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">🚀</div>
+    <div class="recap-tile-num">{{ best_md_pts }}</div>
+    <h3>Bester Spieltag (#{{ best_md_num }})</h3>
+    <p>Da ging richtig was!</p>
+  </div>
+  {% endif %}
+
+  <!-- 6. Joker -->
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">⚡</div>
+    <div class="recap-tile-num gold">{{ joker_total_pts }}</div>
+    <h3>Joker-Punkte</h3>
+    <p>{{ joker_count }} Joker eingesetzt · Ø {{ joker_avg }} Pkt</p>
+  </div>
+
+  {% if insights %}
+  <!-- 7. Lieblingstipp -->
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">🎲</div>
+    <div class="recap-tile-num">{{ insights.most_common_tip }}</div>
+    <h3>Dein Signature-Tipp</h3>
+    <p>{{ insights.most_common_count }}× abgegeben ({{ insights.most_common_pct }}%)</p>
+  </div>
+
+  <!-- 8. Tendenz -->
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">⚖</div>
+    <div class="recap-tile-num">
+      {% set max_t = [insights.tendency_pct.home, insights.tendency_pct.draw, insights.tendency_pct.away]|max %}
+      {% if insights.tendency_pct.home == max_t %}🏠
+      {% elif insights.tendency_pct.away == max_t %}✈
+      {% else %}⚖{% endif %}
+    </div>
+    <h3>Du tippst gern {% if insights.tendency_pct.home == max_t %}Heimsieg
+        {% elif insights.tendency_pct.away == max_t %}Auswärtssieg{% else %}Unentschieden{% endif %}</h3>
+    <p>{{ max_t }}% deiner Tipps</p>
+  </div>
+
+  <!-- 9. Bestes Spiel -->
+  {% if insights.best %}
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">🌟</div>
+    <div class="recap-tile-num gold">+{{ insights.best.points }}</div>
+    <h3>Glanz-Tipp</h3>
+    <p>{{ insights.best.match.home_team.short_name }} {{ insights.best.match.home_score }}:{{ insights.best.match.away_score }} {{ insights.best.match.away_team.short_name }} (du: {{ insights.best.home_tip }}:{{ insights.best.away_tip }})</p>
+  </div>
+  {% endif %}
+
+  <!-- 10. Schlimmster Patzer -->
+  {% if insights.worst %}
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">😅</div>
+    <div class="recap-tile-num danger">0</div>
+    <h3>Daneben gegriffen</h3>
+    <p>{{ insights.worst.match.home_team.short_name }} {{ insights.worst.match.home_score }}:{{ insights.worst.match.away_score }} {{ insights.worst.match.away_team.short_name }} (du: {{ insights.worst.home_tip }}:{{ insights.worst.away_tip }})</p>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <!-- 11. Badges -->
+  <div class="recap-tile">
+    <div class="recap-tile-emoji">🏅</div>
+    <div class="recap-tile-num gold">{{ badges_count }}</div>
+    <h3>Badges gesammelt</h3>
+    <p>{% if badges_count == 0 %}Spannung pur — der erste kommt!{% else %}Stolz drauf!{% endif %}</p>
+  </div>
+
+</div>
+
+<div class="recap-actions">
+  <a href="{{ url_for('main.export_pdf') }}" class="btn-primary">
+    📄 Als PDF herunterladen
+  </a>
+  <button type="button" class="btn-ghost share-btn"
+          data-share-text="🎬 Meine Saison-Bilanz bei der Wulmstörper Tipprunde:
+💯 {{ stats.total_points }} Punkte (Platz {{ final_rank or '?' }})
+🎯 {{ stats.exact }} exakte Tipps
+🏆 {{ md_wins_count }} Spieltagsiege
+⚡ {{ joker_count }} Joker eingesetzt">
+    📱 Bilanz teilen
+  </button>
+  <a href="{{ url_for('main.profile') }}" class="btn-ghost">← Profil</a>
+</div>
+
+{% endblock %}

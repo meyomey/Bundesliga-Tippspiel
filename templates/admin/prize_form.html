@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Preis bearbeiten' if prize else 'Neuer Preis' }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.admin_prizes') }}" class="back-link">← Preise</a>
+<h1>{{ '✏️ Preis bearbeiten' if prize else '➕ Neuer Preis' }}</h1>
+
+<div class="grid-12">
+  <section class="card span-7">
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+
+      <div class="grid-3" style="grid-template-columns: 1fr 2fr;">
+        <label>{{ form.rank.label }} {{ form.rank(class_='input', min=0, max=99, inputmode='numeric') }}
+          <small class="muted">0 = Sonderpreis (z.B. "Letzter Platz")</small>
+        </label>
+        <label>{{ form.title.label }} {{ form.title(class_='input', placeholder='z.B. "1. Platz" oder "Trostpreis"') }}</label>
+      </div>
+
+      <label>{{ form.description.label }} {{ form.description(class_='input', placeholder='kurze Beschreibung der Kategorie') }}</label>
+
+      <div class="grid-3" style="grid-template-columns: 1fr 1fr 1fr;">
+        <label>{{ form.icon.label }} {{ form.icon(class_='input icon-input', placeholder='🏆', maxlength=4) }}</label>
+        <label>{{ form.color.label }} {{ form.color(class_='input', type='color') }}</label>
+        <label>{{ form.sort_order.label }} {{ form.sort_order(class_='input', inputmode='numeric') }}
+          <small class="muted">kleiner = weiter oben</small>
+        </label>
+      </div>
+
+      <label>{{ form.amount.label }} {{ form.amount(class_='input', placeholder='z.B. "60 €", "Pokal", "Kasten Bier"') }}
+        <small class="muted">Frei wählbar — Geld, Gegenstand, Prozentsatz...</small>
+      </label>
+
+      <label>{{ form.detail.label }} {{ form.detail(class_='input', rows=4, placeholder='Zusätzlicher Erklärungstext (optional)') }}</label>
+
+      <label class="check">
+        {{ form.active() }}
+        <span style="margin-left:6px">{{ form.active.label.text }}</span>
+      </label>
+
+      <div style="display:flex; gap:8px; margin-top:18px">
+        {{ form.submit(class_='btn-primary btn-block') }}
+        <a href="{{ url_for('admin.admin_prizes') }}" class="btn-ghost">Abbrechen</a>
+      </div>
+    </form>
+  </section>
+
+  <aside class="card span-5">
+    <h3>Vorschau</h3>
+    <div class="prize-card" id="prizePreview" style="--prize-color: #fbbf24;">
+      <div class="prize-rank-badge" id="ppRank">1.</div>
+      <div class="prize-icon" id="ppIcon" style="background: #fbbf2422; color: #fbbf24;">🏆</div>
+      <h2 id="ppTitle">Mein Preis</h2>
+      <p class="muted small" id="ppDesc">Beschreibung...</p>
+      <div class="prize-amount" id="ppAmount" style="color: #fbbf24;"></div>
+      <p class="prize-detail" id="ppDetail"></p>
+    </div>
+  </aside>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const fields = {
+    rank: document.querySelector('input[name="rank"]'),
+    title: document.querySelector('input[name="title"]'),
+    desc: document.querySelector('input[name="description"]'),
+    icon: document.querySelector('input[name="icon"]'),
+    color: document.querySelector('input[name="color"]'),
+    amount: document.querySelector('input[name="amount"]'),
+    detail: document.querySelector('textarea[name="detail"]'),
+  };
+  const preview = {
+    box: document.getElementById('prizePreview'),
+    rank: document.getElementById('ppRank'),
+    icon: document.getElementById('ppIcon'),
+    title: document.getElementById('ppTitle'),
+    desc: document.getElementById('ppDesc'),
+    amount: document.getElementById('ppAmount'),
+    detail: document.getElementById('ppDetail'),
+  };
+  function update() {
+    if (preview.title) preview.title.textContent = fields.title?.value || 'Mein Preis';
+    if (preview.desc) preview.desc.textContent = fields.desc?.value || 'Beschreibung...';
+    if (preview.icon) preview.icon.textContent = fields.icon?.value || '🏆';
+    if (preview.amount) preview.amount.textContent = fields.amount?.value || '';
+    if (preview.detail) preview.detail.textContent = fields.detail?.value || '';
+    if (preview.rank) {
+      const r = parseInt(fields.rank?.value);
+      preview.rank.innerHTML = (!r || r === 0) ? '<span class="muted small">SONDERPREIS</span>' : (r + '.');
+    }
+    if (fields.color?.value) {
+      const c = fields.color.value;
+      preview.box.style.setProperty('--prize-color', c);
+      preview.icon.style.background = c + '22';
+      preview.icon.style.color = c;
+      preview.amount.style.color = c;
+    }
+  }
+  Object.values(fields).forEach(el => { if (el) el.addEventListener('input', update); });
+  update();
+})();
+</script>
+{% endblock %}

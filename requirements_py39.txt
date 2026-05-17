@@ -1,0 +1,52 @@
+# =====================================================
+# Wulmstörper Tipprunde - Dependencies für Python 3.9
+# (kompatibel mit älterem Netcup-Python)
+#
+# Falls dein Netcup-Plesk Python 3.10 oder neuer anbietet,
+# nutze stattdessen die normale requirements.txt
+# =====================================================
+
+# Flask-Stack (alle 3.9-kompatibel)
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Flask-WTF==1.2.1
+Flask-Mail==0.10.0
+WTForms==3.1.2
+email-validator==2.2.0
+Werkzeug==3.0.4
+Jinja2==3.1.4
+MarkupSafe==2.1.5
+click==8.1.7
+blinker==1.8.2
+itsdangerous==2.2.0
+
+# DB
+SQLAlchemy==2.0.36
+typing_extensions==4.12.2
+greenlet==3.1.1
+
+# HTTP - WICHTIG: alte Versionen für Python 3.9
+requests==2.31.0
+urllib3==1.26.20
+certifi==2024.8.30
+charset-normalizer==3.3.2
+idna==3.10
+chardet==5.2.0
+
+# E-Mail
+dnspython==2.6.1
+
+# Sonstiges
+python-dotenv==1.0.1
+
+# Optional (kann fehlen falls Probleme)
+Pillow==10.4.0
+reportlab==4.2.2
+
+# Sicherheits-Backports für ältere Python-Versionen
+importlib_metadata==8.5.0
+zipp==3.20.2
+
+# WTForms-Abhängigkeit für ältere Python
+typing_extensions==4.12.2

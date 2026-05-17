@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Spiele &amp; Tipps{% endblock %}
+
+{% macro form_dots(form_list) %}
+  <span class="form-stripe small">
+  {% for f in form_list|reverse %}
+    <span class="form-dot form-{{ f.result }}" title="{{ f.opponent.short_name }} {{ f.score }}">{{ f.result }}</span>
+  {% endfor %}
+  </span>
+{% endmacro %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>📅 Spiele &amp; Tipps</h1>
+    <p class="muted small">
+      Spieltag {{ current_md }}
+      {% if joker_used %} · <span class="joker">⚡ Joker bereits eingesetzt</span>{% endif %}
+    </p>
+  </div>
+  <div class="header-actions md-switcher">
+    <select onchange="location.href='{{ url_for('main.schedule') }}/'+this.value">
+      {% for md in matchdays %}
+        <option value="{{ md }}" {{ 'selected' if md == current_md }}>Spieltag {{ md }}</option>
+      {% endfor %}
+    </select>
+    <a href="{{ url_for('main.quick_tip', matchday=current_md) }}" class="btn-primary btn-sm">⚡ Schnelltipp</a>
+  </div>
+</div>
+
+<div class="card flat" id="scheduleCard" data-matchday="{{ current_md }}">
+  {% for m in matches %}
+    {% set p = pred_map.get(m.id) %}
+    {% set hpos = pos_map.get(m.home_team_id) if pos_map else none %}
+    {% set apos = pos_map.get(m.away_team_id) if pos_map else none %}
+    <div class="match-full {{ 'is-live' if m.status == 'live' }}" data-match-id="{{ m.id }}">
+      <!-- 🌍 UTC-Zeit wird per JS in lokale Zeit umgerechnet -->
+      <div class="match-time" data-utc="{{ m.kickoff.strftime('%Y-%m-%dT%H:%M:%SZ') }}">
+        <small class="match-date">--</small>
+        <strong class="match-hour">--:--</strong>
+        <span class="status status-{{ m.status }}">
+          {% if m.status == 'finished' %}beendet
+          {% elif m.status == 'live' %}LIVE
+          {% else %}geplant{% endif %}
+        </span>
+      </div>
+
+      <div class="match-body">
+        <!-- HEIM -->
+        <div class="team-cell big right">
+          <img src="{{ m.home_team.logo }}" alt="" class="team-logo" />
+          <div class="team-info-block">
+            <strong title="{{ m.home_team.name }}">
+              <span class="hidden-mobile">{{ m.home_team.name }}</span>
+              <span class="hidden-desktop">{{ m.home_team.short_name }}</span>
+            </strong>
+            <div class="team-meta-line">
+              {% if hpos %}<span class="pos-badge">#{{ hpos.rank }}</span>{% endif %}
+              {% if form_map and form_map.get(m.home_team_id) %}
+                {{ form_dots(form_map[m.home_team_id]) }}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- ERGEBNIS / TIPP -->
+        <div class="match-result">
+          {% if m.status == 'finished' and m.home_score is not none %}
+            <div class="real-score">{{ m.home_score }} : {{ m.away_score }}</div>
+            {% if p %}
+              <div class="tip-info">
+                Tipp: <strong>{{ p.home_tip }}:{{ p.away_tip }}</strong>
+                {% if p.joker %}<span class="joker">⚡</span>{% endif %}
+                <span class="pts-pill {{ 'good' if p.points and p.points > 0 }}">+{{ p.points or 0 }}</span>
+              </div>
+            {% endif %}
+          {% else %}
+            {% if p %}
+              <div class="my-tip">{{ p.home_tip }} : {{ p.away_tip }} {% if p.joker %}<span class="joker">⚡</span>{% endif %}</div>
+              <small class="muted">Dein Tipp</small>
+            {% else %}
+              <div class="muted">— : —</div>
+              <small class="muted">Kein Tipp</small>
+            {% endif %}
+          {% endif %}
+        </div>
+
+        <!-- AUSWÄRTS -->
+        <div class="team-cell big">
+          <img src="{{ m.away_team.logo }}" alt="" class="team-logo" />
+          <div class="team-info-block">
+            <strong title="{{ m.away_team.name }}">
+              <span class="hidden-mobile">{{ m.away_team.name }}</span>
+              <span class="hidden-desktop">{{ m.away_team.short_name }}</span>
+            </strong>
+            <div class="team-meta-line">
+              {% if apos %}<span class="pos-badge">#{{ apos.rank }}</span>{% endif %}
+              {% if form_map and form_map.get(m.away_team_id) %}
+                {{ form_dots(form_map[m.away_team_id]) }}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="match-cta">
+        {% if m.is_open() %}
+          <a href="{{ url_for('main.match_detail', match_id=m.id) }}" class="btn-primary btn-sm">
+            {{ '✏️ Tipp ändern' if p else '➕ Tipp abgeben' }}
+          </a>
+        {% else %}
+          <a href="{{ url_for('main.match_detail', match_id=m.id) }}" class="btn-ghost btn-sm">Details</a>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <p class="muted center pad">Keine Spiele für diesen Spieltag.</p>
+  {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Live-Polling fuer den Spielplan, wenn aktuell Spiele laufen oder bald starten
+(function() {
+  const card = document.getElementById('scheduleCard');
+  if (!card) return;
+  const matchday = card.dataset.matchday;
+  if (!matchday) return;
+
+  // Pruefen ob es ein Live-Match gibt
+  const hasLive = card.querySelectorAll('.match-full.is-live').length > 0;
+  // Pruefen ob es ein Match in den nächsten 4h gibt (oder gerade lief)
+  const now = Date.now();
+  const matches = card.querySelectorAll('.match-full[data-match-id]');
+  let needsPolling = hasLive;
+  // Suche kickoff-Zeit aus dem DOM (im strong-Tag der match-time)
+  matches.forEach(el => {
+    const timeEl = el.querySelector('.match-time strong');
+    if (!timeEl) return;
+    // Wir koennen aus dem Text "15:30" + dem date "Sa, 16.12." nicht zuverlässig
+    // einen ISO-Timestamp bauen. Stattdessen: fragen wir den Server,
+    // ob er Live-Matches hat - aber nur, wenn hasLive oder wir in der Live-Saison sind.
+  });
+  // Vereinfachung: pollen, wenn mindestens ein Live-Match angezeigt wird
+  if (!hasLive) return;
+
+  const POLL = 30_000; // 30s
+  async function poll() {
+    try {
+      const r = await fetch(`/api/live/matchday/${matchday}`, { credentials: 'same-origin' });
+      const data = await r.json();
+      if (!data.ok) return;
+      // Pro Match: Score + Status updaten ohne Reload
+      data.matches.forEach(m => {
+        const row = card.querySelector(`.match-full[data-match-id="${m.id}"]`);
+        if (!row) return;
+        // Live-Klasse setzen
+        row.classList.toggle('is-live', m.status === 'live');
+        // Score aktualisieren
+        const scoreEl = row.querySelector('.real-score');
+        if (m.status === 'finished' || m.status === 'live') {
+          if (m.home_score !== null && m.away_score !== null) {
+            const html = `${m.home_score} : ${m.away_score}`;
+            // .match-result verändern
+            const resultBox = row.querySelector('.match-result');
+            if (resultBox && (!scoreEl || scoreEl.textContent.trim() !== html)) {
+              // Suchen ob real-score schon existiert; sonst replace
+              if (scoreEl) {
+                scoreEl.textContent = html;
+              }
+            }
+          }
+        }
+        // Status-Badge updaten
+        const status = row.querySelector('.status');
+        if (status) {
+          status.className = `status status-${m.status}`;
+          status.textContent = m.status === 'finished' ? 'beendet' :
+                               m.status === 'live'    ? 'LIVE' : 'geplant';
+        }
+      });
+      // Wenn keine Live-Matches mehr → Reload, damit alle Tipps/Punkte korrekt
+      if (data.live_count === 0 && hasLive) {
+        location.reload();
+      }
+    } catch(e) {
+      console.warn('Live-Polling Fehler:', e);
+    }
+  }
+  setInterval(poll, POLL);
+  poll();
+})();
+</script>
+{% endblock %}

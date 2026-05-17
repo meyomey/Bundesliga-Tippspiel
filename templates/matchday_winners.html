@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Spieltagsieger{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <span class="overline">SAISON-CHRONIK</span>
+    <h1>🏆 Spieltagsieger</h1>
+    <p class="muted small">Wer holte den Sieg am jeweiligen Spieltag?</p>
+  </div>
+</div>
+
+{% if not grouped %}
+  <div class="card center pad">
+    <p class="muted">Noch keine Spieltage ausgewertet — bisher keine Sieger.</p>
+  </div>
+{% else %}
+
+<div class="grid-12">
+  <!-- Top-Sieger-Bestenliste -->
+  <aside class="card span-5">
+    <div class="card-header">
+      <h2>👑 Hall of Fame</h2>
+      <small class="muted">Meiste Siege</small>
+    </div>
+    <ol class="md-top-list">
+      {% for w in top_winners[:10] %}
+        <li class="{{ 'me' if w.user.id == current_user.id }} {{ 'top1' if loop.index == 1 }}">
+          <span class="md-tl-rank">
+            {% if loop.index == 1 %}🥇
+            {% elif loop.index == 2 %}🥈
+            {% elif loop.index == 3 %}🥉
+            {% else %}#{{ loop.index }}{% endif %}
+          </span>
+          <div class="md-tl-user">
+            {% if w.user.avatar and w.user.avatar != 'default.png' %}
+              <img src="{{ url_for('static', filename='uploads/' + w.user.avatar) }}" alt="" />
+            {% else %}
+              <div class="avatar-fallback small">{{ w.user.username[0]|upper }}</div>
+            {% endif %}
+            <div>
+              <strong>{{ w.user.username }}</strong>
+              {% if w.user.favorite_team %}
+                <small class="muted">
+                  <img src="{{ w.user.favorite_team.logo }}" class="mini-logo" alt="" />
+                  {{ w.user.favorite_team.short_name }}
+                </small>
+              {% endif %}
+            </div>
+          </div>
+          <div class="md-tl-stats">
+            <strong>{{ w.wins }}×</strong>
+            <small>{{ w.total_pts }} Pkt</small>
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  </aside>
+
+  <!-- Spieltag-Chronik (von oben nach unten: aktuell zuerst) -->
+  <section class="card span-7">
+    <div class="card-header">
+      <h2>📅 Chronik</h2>
+      <small class="muted">{{ grouped|length }} Spieltage</small>
+    </div>
+    <div class="md-chronicle">
+      {% for md, winners in grouped.items() %}
+        <div class="md-entry">
+          <div class="md-entry-day">
+            <span class="md-num">{{ md }}</span>
+            <small>SPIELTAG</small>
+          </div>
+          <div class="md-entry-winners">
+            {% for w in winners %}
+              <div class="md-winner-row {{ 'me' if w.user.id == current_user.id }}">
+                <span class="md-trophy">
+                  {% if w.is_shared %}🤝{% else %}🏆{% endif %}
+                </span>
+                {% if w.user.avatar and w.user.avatar != 'default.png' %}
+                  <img src="{{ url_for('static', filename='uploads/' + w.user.avatar) }}" alt="" class="md-avatar" />
+                {% else %}
+                  <div class="avatar-fallback small">{{ w.user.username[0]|upper }}</div>
+                {% endif %}
+                <div class="md-winner-name">
+                  <strong>{{ w.user.username }}</strong>
+                  {% if w.is_shared %}<small class="muted">geteilter Sieg</small>{% endif %}
+                </div>
+                <div class="md-winner-pts">
+                  <strong>{{ w.points }}</strong>
+                  <small class="muted">{{ w.exact_count }} exakt</small>
+                </div>
+              </div>
+            {% endfor %}
+            <div class="md-share-row">
+              {% set winner_names = winners|map(attribute='user.username')|join(', ') %}
+              {% set top_pts = winners[0].points %}
+              <button type="button" class="btn-ghost btn-xs share-btn"
+                      data-share-text="🏆 Spieltag {{ md }} – Sieger: {{ winner_names }} mit {{ top_pts }} Punkten! Wulmstörper Tipprunde">
+                📱 Spieltagsieger teilen
+              </button>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+
+{% endif %}
+
+{% endblock %}

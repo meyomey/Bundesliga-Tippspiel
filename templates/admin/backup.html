@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Backup & Restore · Admin{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.dashboard') }}" class="back-link">← Admin</a>
+
+<div class="page-header">
+  <div>
+    <span class="overline">WARTUNG</span>
+    <h1>💾 Backup &amp; Restore</h1>
+    <p class="muted small">Sichere deine Tipprunden-Datenbank oder stelle ein Backup wieder her.</p>
+  </div>
+</div>
+
+<div class="grid-12">
+  <section class="card span-6">
+    <h2>📥 Backup herunterladen</h2>
+    <p class="muted small">
+      Lädt die aktuelle SQLite-Datenbank als <code>.db</code>-Datei herunter.
+      Bewahre diese Datei sicher auf.
+    </p>
+
+    <div class="backup-info-box">
+      <div><strong>Status</strong><span>{{ 'vorhanden' if exists else 'nicht gefunden' }}</span></div>
+      <div><strong>Größe</strong><span>{{ (size / 1024 / 1024)|round(2) }} MB</span></div>
+      <div><strong>Pfad</strong><span title="{{ db_path or '' }}">{{ db_path or '—' }}</span></div>
+    </div>
+
+    {% if exists %}
+      <a href="{{ url_for('admin.backup_download') }}" class="btn-primary btn-block" style="margin-top:16px">
+        ⬇ Datenbank-Backup herunterladen
+      </a>
+    {% else %}
+      <button class="btn-ghost btn-block" disabled style="margin-top:16px">Kein Backup möglich</button>
+    {% endif %}
+  </section>
+
+  <section class="card span-6">
+    <h2>📤 Backup wiederherstellen</h2>
+    <p class="muted small">
+      Ersetzt die aktuelle Datenbank durch eine hochgeladene Backup-Datei.
+      Vorher wird automatisch eine Sicherheitskopie der aktuellen Datenbank angelegt.
+    </p>
+
+    <form method="post" action="{{ url_for('admin.backup_restore') }}" enctype="multipart/form-data"
+          onsubmit="return confirm('⚠️ Restore wirklich starten? Die aktuelle Datenbank wird ersetzt. Vorher wird automatisch eine Sicherheitskopie erstellt.')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
+      <label>
+        Backup-Datei (.db, .sqlite, .sqlite3)
+        <input type="file" name="backup_file" class="input" accept=".db,.sqlite,.sqlite3" required>
+      </label>
+      <button type="submit" class="btn-danger btn-block">
+        ⚠ Backup wiederherstellen
+      </button>
+    </form>
+  </section>
+</div>
+
+<div class="card" style="margin-top:18px">
+  <h3>💡 Hinweise</h3>
+  <ul class="backup-hints">
+    <li>Nach einem Restore solltest du die App einmal in Plesk neu starten.</li>
+    <li>Die Restore-Funktion ist für SQLite gedacht. Bei MySQL/PostgreSQL bitte externes Hosting-Backup nutzen.</li>
+    <li>Backup-Dateien können sensible Daten enthalten: E-Mail-Adressen, Telefonnummern, Bezahlstatus.</li>
+    <li>Lege vor größeren Änderungen immer ein Backup an.</li>
+  </ul>
+</div>
+
+{% endblock %}
